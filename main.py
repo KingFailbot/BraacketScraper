@@ -1,4 +1,5 @@
-
+import xlwt
+from xlwt import Workbook
 import csv
 import requests
 import time
@@ -111,7 +112,7 @@ def scrapeLast200Tournaments():
     areEqual = len(tournaments) == len(entrantCounts)
     areEqual = areEqual & (len(tournaments) == len(links))
     if (areEqual):
-        with open('Last200Tournaments.csv', 'w') as new_file:
+        with open('Last200Tournaments.csv', 'w', newline='') as new_file:
 
             pairs = []
             for t, d, e, m, l in zip(tournaments, dates, entrantCounts, matches, links):
@@ -125,11 +126,12 @@ def scrapeLast200Tournaments():
             csv_writer.writeheader()
             for row in pairs:
                 csv_writer.writerow(row)
+    return links
 
 
 def removeifContains(word, target):
     delim = word.find(target)
-    if delim == -1 :
+    if delim != -1 :
         word = word.replace(target, '')
     return word
 
@@ -156,9 +158,16 @@ def cutString(word, start, end):
         word = word.split(end)[0]
     return word;
 
+def isEven(num):
+    if num % 2 == 0:
+        return True
+    else:
+        return False
+
 def removeWhiteSpace(word):
     word = removeifContains(word, '\n')
     word = removeifContains(word, "\t")
+    word = removeifContains(word, " ")
     return word
 
 def getHeader(url):
@@ -167,7 +176,8 @@ def getHeader(url):
     soup = BeautifulSoup(r.content, 'html.parser')
     s = soup.find('a', class_='text-bold')
     tournamentName = s.getText()
-    print(cleanString(tournamentName))
+    tournamentName = cleanString(tournamentName)
+    print(tournamentName)
     s = soup.find_all('div', class_='btn btn-default')
     date = s[1].getText()
     entrants = s[2].getText()
@@ -190,11 +200,33 @@ def getPlayersAndAlts(url):
     r = requests.get(url)
     print(r)
     soup = BeautifulSoup(r.content, 'html.parser')
+    for alt in soup.find_all('td', class_='ellipsis'):
+        alt = alt.getText()
+        alt = removeWhiteSpace(alt)
+        alts.append(alt)
+    for player in soup.find_all('span', class_='hidden-xs'):
+        player = player.getText()
+        if(player.find("  ") != -1):
+            players.append(removeWhiteSpace(player))
+
 
 
 
     return players, alts
-def scrapeATournament(url):
+
+def getDoubleElimN(number):
+    n = 1
+    while(number > pow(2, n+1)):
+        n = n + 1
+    return n;
+def getDoubleElimPlacement(number):
+    if number < 5:
+        return number
+    n = getDoubleElimN(number)
+    if(number > (pow(2, n) + pow(2, (n-1)))):
+        return ((pow(2, n) + pow(2, (n-1))) + 1)
+    return (pow(2,n) + 1)
+def scrapeATournament(url, workBook):
     """
     Needed parameters
     tournamentName
@@ -204,7 +236,7 @@ def scrapeATournament(url):
     Sets played
     OG Bracket Link
     League Link
-
+    """
 
 
     tournamentName, date, entrants, sets, link = getHeader(url)
@@ -216,13 +248,67 @@ def scrapeATournament(url):
     time.sleep(2)
 
 
-    """
-    rankingURL = url + "/ranking"
-    player, alts = getPlayersAndAlts(rankingURL)
+
+    count = 1
+    rankingURL = url + "/ranking?rows=200"
+    players, alts = getPlayersAndAlts(rankingURL)
+    nums = []
+    for play in players:
+        nums.append(getDoubleElimPlacement(count))
+        count = count + 1
+    tuples = []
+    first = players[0]
+    print('First:', first)
 
 
-# scrapeLast200Tournaments()
+    titleFields = ['Tournament Name', 'Date', 'Winner', 'Entrants', 'Sets Played', 'Original Link:', 'League Link']
+    fields = [tournamentName, date, first, entrants, sets, link, url]
+    fieldnames = ['Placement', 'Tag', 'Alt']
 
-url = "https://braacket.com/tournament/0158DF57-0695-4D2F-A111-8E67687BF8D9"
+    sheetname = tournamentName
+    strlength = len(sheetname)
+    if(strlength > 30):
+        sheetname = sheetname[:30]
 
-scrapeATournament(url)
+    sheet = workBook.add_sheet(sheetname)
+    for i in range(0, len(titleFields)):
+        sheet.write(0, i, titleFields[i])
+        sheet.write(1, i, fields[i])
+
+    for i in range(0, len(fieldnames)):
+        sheet.write(2, i, fieldnames[i])
+    for i in range(0, len(nums)):
+        sheet.write(3 + i, 0, nums[i])
+        sheet.write(3 + i, 1, players[i])
+        sheet.write(3 + i, 2, alts[i])
+
+
+    workBook.save('PR tournaments.xls')
+
+"""
+    with open(filename, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile, delimiter= "\t")
+        writer.writerow(titleFields)
+        writer.writerow(fields)
+        writer.writerow(fieldnames)
+        for i in range(0, len(players)):
+            writer.writerow([nums[i], players[i], alts[i]])
+"""
+
+
+
+
+
+
+
+links = scrapeLast200Tournaments()
+
+# url = "https://braacket.com/tournament/0158DF57-0695-4D2F-A111-8E67687BF8D9"
+
+url = "https://braacket.com/tournament/233866E7-DAC3-420B-B08C-1C014FEB2206"
+wb = Workbook()
+time.sleep(2)
+# newlinks = ["https://braacket.com/tournament/233866E7-DAC3-420B-B08C-1C014FEB2206", "https://braacket.com/tournament/0158DF57-0695-4D2F-A111-8E67687BF8D9"]
+for i in reversed(links):
+    time.sleep(2)
+    scrapeATournament(i, wb)
