@@ -14,6 +14,7 @@ class Player:
         self.alts = []
         self.points = 0.0
 
+
     def addPlacement(self, placement, alt):
         if (self.alts.__contains__(alt) == False):
             self.alts.append(alt)
@@ -37,6 +38,9 @@ class Player:
     def printOneLine(self):
         print(self.name, self.points, self.tournamentsAttended())
 
+    def getAlts(self):
+        return self.alts
+
     def __lt__(self, other):
         return self.points < other.points
 
@@ -54,3 +58,64 @@ class Player:
 
     def __ne__(self, other):
         return self.points != other.points
+
+class HeadToHeadPlayer:
+    def __init__(self, name):
+        self.setWins = []
+        self.setLoses = []
+        self.name = name
+
+    def getWinPercent(self):
+        return len(self.setWins) / (len(self.setWins) + len(self.setLoses))
+
+    def addWin(self, set):
+        self.setWins.append(set)
+
+
+    def addLose(self, set):
+        self.setLoses.append(set)
+
+
+    def display(self):
+        print(self.name + ':', len(self.setWins), '-', len(self.setLoses))
+
+    def getTotalSets(self):
+        return len(self.setWins) + len(self.setLoses)
+
+    def displaySets(self):
+        print("Wins: ")
+        for i in self.setWins:
+            i.displayAll()
+        print("Losses: ")
+        for i in self.setLoses:
+            i.displayAll()
+    def __lt__(self, other):
+        if self.getWinPercent() == other.getWinPercent():
+            return self.getTotalSets() < other.getTotalSets()
+        return self.getWinPercent() < other.getWinPercent()
+
+    def __le__(self, other):
+        if self.getWinPercent() == other.getWinPercent():
+            return self.getTotalSets() <= other.getTotalSets()
+        return self.getWinPercent() <= other.getWinPercent()
+
+    def __eq__(self, other):
+        if self.getWinPercent() == other.getWinPercent():
+            return self.getTotalSets() == other.getTotalSets()
+        return self.getWinPercent() == other.getWinPercent()
+
+    def __ge__(self, other):
+        if self.getWinPercent() == other.getWinPercent():
+            return self.getTotalSets() >= other.getTotalSets()
+        return self.getWinPercent() >= other.getWinPercent()
+
+    def __gt__(self, other):
+        if self.getWinPercent() == other.getWinPercent():
+            return self.getTotalSets() > other.getTotalSets()
+
+        return self.getWinPercent() > other.getWinPercent()
+
+    def __ne__(self, other):
+        if self.getWinPercent() == other.getWinPercent():
+            return self.getTotalSets() != other.getTotalSets()
+        return self.getWinPercent() != other.getWinPercent()
