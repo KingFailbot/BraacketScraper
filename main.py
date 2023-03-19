@@ -11,7 +11,7 @@ from Player import Player
 from Player import HeadToHeadPlayer
 
 from set import Set
-
+from set import SetDecider
 
 def scrapeLast200Tournaments():
     r = requests.get('https://braacket.com/league/MNUltNew/tournament?rows=200')
@@ -147,7 +147,6 @@ def getAllTextInstances(array, soup, classType, className, display):
                 print(item)
             array.append(item)
     return array
-
 
 
 def removeifContains(word, target):
@@ -427,8 +426,6 @@ def calculateTournamentPoints(fileLocation, players, playernames):
                 header = row[0].split("\t")
                 tournamentName = header[0]
                 entrants = int(header[3])
-                print("Tournament:", tournamentName)
-                print("Entrants: ", entrants)
 
             if (count > 2):
                 info = row[0].split(("\t"))
@@ -457,6 +454,25 @@ def calculateTournamentPoints(fileLocation, players, playernames):
 
             count = count + 1
     return players, playernames
+
+
+def addAllPlacements(file, cond, players, playernames):
+    with open(file, 'r', encoding= 'utf-8') as file:
+        reader = csv.reader(file, delimiter= '\t')
+        count = 0
+        tournaments = []
+        dates = []
+        for row in reader:
+            if count > 0:
+                if(cond.__contains__(getSeasonName(row[1]))):
+                    tournaments.append(row[0])
+                    dates.append(row[1])
+            count += 1
+    count = 0
+    for bracket in tournaments:
+        link = "Placements\\" + getSeasonName(dates[count]) + "\\" + bracket + ".csv"
+        calculateTournamentPoints(link, players, playernames)
+        count += 1
 
 
 def printAllAlts():
@@ -506,66 +522,30 @@ def getOneHeadToHead(url, titleFields, fields, headToHeadWB, headToHeadFile, pla
     r = requests.get(url)
     print(r)
     soup = BeautifulSoup(r.content, 'html.parser')
-    winners = []
-    losers = []
-    winScore = []
-    loseScore = []
-    order = []
     Sets = []
-    count = 0
-    len1 = len(players)
-    len2 = len(alts)
-    if len1 > len2:
-        for i in range(0, len2):
-            print(players[i], alts[i])
-        print(players[len1 - 1])
-        print("NOT EQUAL!!!")
-    elif len2 > len1:
-        for i in range(0, len1):
-            print(players[i], alts[i])
-        print(alts[len2 - 1])
-        print("NOT EQUAL!!!")
+    URLs = []
+    for link in soup.find_all('a'):
+        text = link.get('href')
+        delimiter = -1
+        if text is not None:
+            delimiter = text.find("/stage/")
+        if delimiter != -1:
+            text = "https://braacket.com" + text
+            text = removeifContains(text, '?')
+            print(text)
+            URLs.append(text)
+    if len(URLs) == 1:
+        severalURLs = False
     else:
-        print("Equal")
-
-
-    count = 0
-    for item in soup.find_all('table', class_='tournament_encounter-row'):
-        entries = []
-        count = count + 1
-
-        entries = item.getText().split("\n")
-        smallcount = 0;
-        goodData = []
-        for j in entries:
-            j = removeWhiteSpace(j)
-            if (j != '' and j!=' '):
-
-                goodData.append(j)
-
-                smallcount += 1
-        if(len(goodData) > 4):
-            if(not(( int(goodData[2]) == -1 )or (int(goodData[4]) == -1))):
-                order.append(int(goodData[0]))
-                if int(goodData[2]) > int(goodData[4]):
-                    # print("Winner:", goodData[1])
-                    winners.append(replaceAltWithPlayer(goodData[1], players, alts))
-                    winScore.append(int(goodData[2]))
-                    # print("Loser:", goodData[3])
-                    losers.append(replaceAltWithPlayer(goodData[3], players, alts))
-                    loseScore.append(int(goodData[4]))
-                else:
-                    # print("Loser:", goodData[1])
-                    losers.append(replaceAltWithPlayer(goodData[1], players, alts))
-                    loseScore.append(int(goodData[2]))
-                    # print("Winner:", goodData[3])
-                    winners.append(replaceAltWithPlayer(goodData[3], players, alts))
-                    winScore.append(int(goodData[4]))
-            else:
-                print("DQ!!!")
-    for i in range(0, len(winners)):
-        set = Set(winners[i], losers[i], winScore[i], loseScore[i], order[i])
-        Sets.append(set)
+        severalURLs = True
+    if not severalURLs:
+        scrapeOneH2HPage(url, Sets, players, alts, soup, severalURLs)
+        row3 = ['Set Num', 'Winner', 'Loser', 'WS', 'LS', 'Best of', 'Game']
+    else:
+        print("MULTIPLE PHASES:")
+        row3 = ['Set Num', 'Winner', 'Loser', 'WS', 'LS', 'Best of', 'Game', '**MULTIPLE BRACKET PHASES**']
+        for phase in URLs:
+            scrapeOneH2HPage(phase, Sets, players, alts, soup, severalURLs)
     Sets = sorted(Sets)
 
     date = fields[1]
@@ -574,7 +554,7 @@ def getOneHeadToHead(url, titleFields, fields, headToHeadWB, headToHeadFile, pla
 
     path = "HeadToHead/" + date + "/" + tournamentName + ".csv"
 
-    row3 = ['Set Num', 'Winner', 'Loser', 'WS', 'LS', 'Best of', 'Game']
+
     with open(path, 'w', newline='', encoding="utf-8") as csvfile:
         writer = csv.writer(csvfile, delimiter="\t")
         writer.writerow(titleFields)
@@ -615,6 +595,67 @@ def getOneHeadToHead(url, titleFields, fields, headToHeadWB, headToHeadFile, pla
     """
 
 
+def scrapeOneH2HPage(url, sets, players, alts, soup, multiple):
+    if(multiple):
+        time.sleep(2)
+        r = requests.get(url)
+        print(r)
+        soup = BeautifulSoup(r.content, 'html.parser')
+    winners = []
+    losers = []
+    winScore = []
+    loseScore = []
+    order = []
+    len1 = len(players)
+    len2 = len(alts)
+    if len1 > len2:
+        for i in range(0, len2):
+            print(players[i], alts[i])
+        print(players[len1 - 1])
+        print("NOT EQUAL!!!")
+    elif len2 > len1:
+        for i in range(0, len1):
+            print(players[i], alts[i])
+        print(alts[len2 - 1])
+        print("NOT EQUAL!!!")
+    else:
+        print("Equal")
+
+    count = 0
+    for item in soup.find_all('table', class_='tournament_encounter-row'):
+        count = count + 1
+
+        entries = item.getText().split("\n")
+        smallcount = 0;
+        goodData = []
+        for j in entries:
+            j = removeWhiteSpace(j)
+            if (j != '' and j != ' '):
+                goodData.append(j)
+
+                smallcount += 1
+        if (len(goodData) > 4):
+            if (not ((int(goodData[2]) == -1) or (int(goodData[4]) == -1))):
+                order.append(int(goodData[0]))
+                if int(goodData[2]) > int(goodData[4]):
+                    # print("Winner:", goodData[1])
+                    winners.append(replaceAltWithPlayer(goodData[1], players, alts))
+                    winScore.append(int(goodData[2]))
+                    # print("Loser:", goodData[3])
+                    losers.append(replaceAltWithPlayer(goodData[3], players, alts))
+                    loseScore.append(int(goodData[4]))
+                else:
+                    # print("Loser:", goodData[1])
+                    losers.append(replaceAltWithPlayer(goodData[1], players, alts))
+                    loseScore.append(int(goodData[2]))
+                    # print("Winner:", goodData[3])
+                    winners.append(replaceAltWithPlayer(goodData[3], players, alts))
+                    winScore.append(int(goodData[4]))
+    for i in range(0, len(winners)):
+        set = Set(winners[i], losers[i], winScore[i], loseScore[i], order[i])
+        sets.append(set)
+
+
 def getSeasonNameTest():
     print(getSeasonName("05 April 2022"))
     print(getSeasonName("01 May 2022"))
@@ -639,19 +680,20 @@ def getSeasonNameTest():
         print("false")
 
 
-def testOneTournament():
+def testScrapeOneTournament():
     wb = Workbook()
-    url = "https://braacket.com/tournament/824F229F-9115-4C42-B5EC-A55BA3930582"
+    url = "https://braacket.com/tournament/228979B6-A101-486A-AADE-73047E5F0025"
     placementFile = 'PR tournaments.xls'
     wb2 = Workbook()
     file = 'HeadToHead.xls'
     scrapeATournament(url, wb, placementFile, wb2, file)
 
 
-def getAllGameFives(playernames, players):
+def getAllSetsWith(cond):
     dates = []
     tournaments = []
-    with open("tournaments.csv", 'r', encoding= 'utf-8') as csvfile:
+    sets = []
+    with open("tournaments.csv", 'r', encoding='utf-8') as csvfile:
         reader = csv.reader((csvfile))
         count = 0
 
@@ -661,140 +703,388 @@ def getAllGameFives(playernames, players):
                 tournaments.append(info[0])
                 dates.append(info[1])
             count += 1
-
     for i in range(0, len(tournaments)):
         filename = "HeadToHead\\"
         filename = filename + getSeasonName(dates[i]) + '\\' + tournaments[i] + '.csv'
-        getOneGameFive(filename, playernames, players)
-    temp = players
-    players.sort()
-    for p in players:
-        p.display()
-    fields = ["Player", "Wins", "Loses", "Win %"]
-    with open("GameFive.csv", 'w', newline='', encoding='utf-8') as file:
-        writer = csv.writer(file, delimiter='\t')
-        writer.writerow(fields)
-        for p in players:
-            writer.writerow([p.name, len(p.setWins), len(p.setLoses), p.getWinPercent()])
-    players = temp
-def getOneGameFive(filename, names, players):
+        getOneTournamentSetsWith(cond, sets, filename)
+    return sets
+
+
+def getOneTournamentSetsWith(cond, sets, filename):
     with open(filename, 'r', encoding= 'utf-8') as file:
         reader = csv.reader(file, delimiter= '\t')
         count = 0
-        sets = []
         for row in reader:
             if count == 1:
                 # tournamentName = row[0].split('\t')[0]
                 tournamentName = row[0]
-                print(tournamentName)
+                date = row[1]
+
             if count > 2:
                 if row[0] != '':
                     # info = row[0].split('\t')
                     # set = Set(info[1], info[2], int(info[3]), int(info[4]), int(info[0]))
                     set = Set(row[1], row[2], int(row[3]), int(row[4]), int(row[0]))
                     set.addTournament(tournamentName)
-                    sets.append(set)
-            count += 1
-            # print(count)
-    for set in sets:
-        if (set.game == 5):
-            if(not (names.__contains__(set.winner))):
-                names.append(set.winner)
-                players.append(HeadToHeadPlayer(set.winner))
-            if(not (names.__contains__(set.loser))):
-                names.append(set.loser)
-                players.append(HeadToHeadPlayer(set.loser))
-            index = names.index(set.winner)
-            players[index].addWin(set)
-            index = names.index(set.loser)
-            players[index].addLose(set)
-        set.display()
+                    set.addDate(date)
+                    if cond.decide(set):
+                        sets.append(set)
+            count = count + 1
 
-def getb05(playernames, players):
-    dates = []
-    tournaments = []
-    with open("tournaments.csv", 'r', encoding= 'utf-8') as csvfile:
-        reader = csv.reader((csvfile))
+
+def setDeciderTester():
+    print("Testing...")
+    sets = []
+    set = Set("Loaf", "Lucky", 3, 2, 1)
+    sets.append(set)
+    set2 = Set("Violet", "Meatflap", 2, 1, 1)
+    sets.append(set2)
+    set3 = Set("Ventura", "Big Will", 2, 0, 1)
+    sets.append(set3)
+    set4 = Set("Truth", "Barb", 3, 0, 1)
+    sets.append(set4)
+    decider = SetDecider(1)
+    if decider.decide(set3):
+        print("TRUE")
+    else:
+        print("FALSE")
+    for i in range(0, 5):
+        decider.mode = i
+        print("Round", i)
+        for set in sets:
+            if decider.decide(set):
+                print("Set:", set.winner, "Iter:", i)
+
+
+def winrateSort(player):
+    return player.getWinPercent()
+
+
+def attendanceSort(player):
+    return player.tournamentsAttended()
+
+
+def setsPlayedSort(player):
+    return player.getTotalSets()
+
+
+def getSetDistribution(sets):
+    sweep = 0
+    threeone = 0
+    threetwo = 0
+
+    for set in sets:
+        if (set.losingScore == 0):
+            sweep += 1
+        elif (set.outOf == set.game):
+            threetwo += 1
+        else:
+            threeone += 1
+    return sweep, threeone, threetwo
+
+
+def sort7225(player):
+    return player.get7525()
+
+
+def sort9010(player):
+    return .90 * float(player.trueSkill) + .10 * float(player.braacket)
+
+
+def linkSetsToPlayers(players, names, sets):
+    for SET in sets:
+        if (not (names.__contains__(SET.winner))):
+            names.append(SET.winner)
+            tempPlayer = Player(SET.winner)
+            players.append(tempPlayer)
+        if (not (names.__contains__(SET.loser))):
+            names.append(SET.loser)
+            tempPlayer = Player(SET.loser)
+            players.append(tempPlayer)
+        index = names.index(SET.winner)
+        players[index].addWin(SET)
+        index = names.index(SET.loser)
+        players[index].addLoss(SET)
+
+
+def scrapeRanking(trueskill, pathname):
+    url = trueskill + "?rows=200"
+    r = requests.get(url)
+    print(r)
+    soup = BeautifulSoup(r.content, 'html.parser')
+    players = []
+    scores = []
+    count = 0
+    e = soup.find_all('td', class_='ellipsis')
+    size = len(e)
+    for row in e:
+        if (count > 7 and count != size - 1):
+            row = removeWhiteSpace(row.getText())
+            row = row[:-1]
+            print (count, row)
+            players.append(row)
+        count += 1
+    e = soup.find_all('td', class_='min text-right')
+    for row in e:
+        print(row.getText())
+        scores.append(row.getText())
+    titleFields = ["Rank", "Tag", "Points"]
+
+    with open(pathname, 'w', newline='', encoding="utf-8") as csvfile:
+        writer = csv.writer(csvfile, delimiter="\t")
+        writer.writerow(titleFields)
+        for i in range(0, len(players)):
+            writer.writerow([i + 1, players[i], scores[i]])
+
+
+def displayTournamentsAttendedInSpring2023():
+    decider = SetDecider(7)
+
+    sets = getAllSetsWith(decider)
+
+    players = []
+    names = []
+
+    linkSetsToPlayers(players, names, sets)
+
+    index = names.index("Failbot")
+    person = players[index]
+    person.displayTotalRecord()
+
+    print(person.getSetCountWithPlayer("Vivian"))
+
+    index2 = names.index("Vivian")
+    person = players[index2]
+    person.displayTotalRecord()
+
+    print(person.getSetCountWithPlayer("Failbot"))
+    print("Players:", len(players))
+
+    # seasons = ["Spring 2023", "Fall 2022", "Summer 2022"]
+    seasons = ["Spring 2023"]
+    addAllPlacements("tournaments.csv", seasons, players, names)
+    print("Players:", len(players), "Names", len(names))
+    count = 0
+    activepeople = []
+    for p in players:
+        if p.hasAttendedAtLeast(4):
+            count += 1
+            activepeople.append(p)
+
+    print("Players with 4 tournaments:", count)
+
+    activepeople.sort(key=attendanceSort)
+    # activepeople.sort(key=setsPlayedSort)
+    for p in activepeople:
+        print(p.name, p.tournamentsAttended(), p.tournamentsAttended())
+
+
+def scrapeTwoRankings():
+    url1 = "https://braacket.com/league/MNUltNew/ranking/2775306D-E6AD-4A38-BEE2-63E6C7B20DBA"
+    dir1 = "Rankings\\Spring 2023\\Trueskill.csv"
+    url2 = "https://braacket.com/league/MNUltNew/ranking/F67F7951-B28B-4E86-A12D-E878543BC5D7"
+    dir2 = "Rankings\\Spring 2023\\Braacket.csv"
+    scrapeRanking(url1, dir1)
+    time.sleep(2)
+    scrapeRanking(url2, dir2)
+
+
+def getQualifiedPlayers(trueskill, braacket, players, names):
+    people1 = []
+    score1 = []
+    people2 = []
+    score2 = []
+    with open(trueskill, 'r', encoding='utf-8') as file:
+        reader = csv.reader(file, delimiter='\t')
         count = 0
 
         for row in reader:
             if count > 0:
-                info = row[0].split('\t')
-                tournaments.append(info[0])
-                dates.append(info[1])
+                people1.append(row[1])
+                score1.append(row[2])
             count += 1
 
-    for i in range(0, len(tournaments)):
-        filename = "HeadToHead\\"
-        filename = filename + getSeasonName(dates[i]) + '\\' + tournaments[i] + '.csv'
-        getOneb05(filename, playernames, players)
 
-    temp = players
-    players.sort()
-    for p in players:
-        p.display()
-    fields = ["Player", "Wins", "Loses", "Win %"]
-    with open("BestofFive.csv", 'w', newline='', encoding='utf-8') as file:
-        writer = csv.writer(file, delimiter='\t')
-        writer.writerow(fields)
-        for p in players:
-            writer.writerow([p.name, len(p.setWins), len(p.setLoses), p.getWinPercent()])
-    players = temp
 
-def getOneb05(filename, names, players):
-    with open(filename, 'r', encoding= 'utf-8') as file:
-        reader = csv.reader(file, delimiter= '\t')
+    with open(braacket, 'r', encoding='utf-8') as file:
+        reader = csv.reader(file, delimiter='\t')
         count = 0
-        sets = []
+
         for row in reader:
-            if count == 1:
-                # tournamentName = row[0].split('\t')[0]
-                tournamentName = row[0]
-                print(tournamentName)
-            if count > 2:
-                if row[0] != '':
-                    # info = row[0].split('\t')
-                    # set = Set(info[1], info[2], int(info[3]), int(info[4]), int(info[0]))
-                    set = Set(row[1], row[2], int(row[3]), int(row[4]), int(row[0]))
-                    set.addTournament(tournamentName)
-                    sets.append(set)
+            if count > 0:
+                people2.append(row[1])
+                score2.append(row[2])
             count += 1
-            # print(count)
-    for set in sets:
-        if (set.outOf == 5):
-            if(not (names.__contains__(set.winner))):
-                names.append(set.winner)
-                players.append(HeadToHeadPlayer(set.winner))
-            if(not (names.__contains__(set.loser))):
-                names.append(set.loser)
-                players.append(HeadToHeadPlayer(set.loser))
-            index = names.index(set.winner)
-            players[index].addWin(set)
-            index = names.index(set.loser)
-            players[index].addLose(set)
 
-# testOneTournament()
-# scrapeLast200Placements()
 
-names = []
+    print("Trueskill Length:", len(people1))
+    print("Braacket Length:", len(people2))
+
+
+    badInput = []
+    for i in range (0, len(people1)):
+        temp = people1[i]
+        bool = people2.__contains__(temp)
+
+        if (not bool):
+            badInput.append(i)
+
+    for i in reversed(badInput):
+        del people1[i]
+        del people2[i]
+
+    badInput = []
+    for i in range (0, len(people2)):
+        if (not people1.__contains__(people2[i])):
+            badInput.append(i)
+
+    for i in reversed(badInput):
+        del people2[i]
+        del score2[i]
+
+
+    print("Trueskill Length:", len(people1), "Score:", len(score1))
+    print("Braacket Length:", len(people2), "Score:", len(score2))
+
+    for i in range(0,len(people1)):
+        tag = people1[i]
+        if (not names.__contains__(tag)):
+            names.append(tag)
+            temp = Player(tag)
+            players.append(temp)
+        index = names.index(tag)
+        players[index].setTrueSkill(score1[i])
+
+    for i in range(0,len(people2)):
+        tag = people2[i]
+        if (not names.__contains__(tag)):
+            names.append(tag)
+            temp = Player(tag)
+            players.append(temp)
+        index = names.index(tag)
+        players[index].setBraacket(score2[i])
+
+
+def getAndCalculateStats():
+    scrapeTwoRankings()
+    players = []
+    names = []
+    getQualifiedPlayers("Rankings\\Spring 2023\\Trueskill.csv", "Rankings\\Spring 2023\\Braacket.csv", players, names)
+    print("Names:", len(names), "Players:", len(players))
+
+
+def makeHead2Head(players):
+
+    arr = [str(i + 1) for i in range(0,20)]
+    arr = ["#", ""] + arr
+    for i in arr:
+        print(i)
+
+    with open("HeadToHeadOutput.csv", 'w', newline='', encoding="utf-8") as csvfile:
+        writer = csv.writer(csvfile, delimiter="\t")
+        writer.writerow(arr)
+        arr = [p.name for p in players]
+        arr = ['', ''] + arr + ["vs. Top 20"]
+        writer.writerow(arr)
+        for i in range(0, len(players)):
+            wins = 0
+            loss = 0
+            for p in players:
+                tempWins, tempLoses = players[i].getSetIntsWith(p.name)
+                wins += tempWins
+                loss += tempLoses
+            setTotal = str(wins) + " - " + str(loss)
+            arr = [players[i].getSetCountWithPlayer(p.name) for p in players]
+            arr = [str(i + 1), players[i].name] + arr
+            arr = arr + [setTotal]
+            writer.writerow(arr)
+
+
+def test9010():
+    names = []
+    players = []
+    getQualifiedPlayers("Rankings\\Spring 2023\\Trueskill.csv", "Rankings\\Spring 2023\\Braacket.csv", players, names)
+    index = names.index("GodIMissHer")
+    del names[index]
+    del players[index]
+    currPr = []
+    for i in players:
+        currPr.append(i)
+    currPr.sort(key=sort7225, reverse=True)
+
+    players.sort(key=sort9010, reverse=True)
+    count = 0
+
+    print("#, Tag, Score, Tag, 75/25 Score")
+    for i in range(0, len(players)):
+        if (not players[i].name == "GodIMissHer"):
+            print(count + 1, players[i].name, .90 * sort9010(players[i]), currPr[i].name, currPr[i].get7525())
+            count += 1
+
+    with open("TestWeight.csv", 'w', newline='', encoding="utf-8") as csvfile:
+        writer = csv.writer(csvfile, delimiter="\t")
+        writer.writerow(["Rank", "Tag", "90/10 Split", "", "Tag", "75/25 Split (Current)"])
+        for i in range(0, len(players)):
+            writer.writerow([i + 1, players[i].name, sort9010(players[i]), "", currPr[i].name, sort7225(currPr[i])])
+
+
+def makeSpring2023H2H():
+    names = []
+    players = []
+    getQualifiedPlayers("Rankings\\Spring 2023\\Trueskill.csv", "Rankings\\Spring 2023\\Braacket.csv", players, names)
+    index = names.index("GodIMissHer")
+    del names[index]
+    del players[index]
+    decider = SetDecider(8)
+
+    sets = getAllSetsWith(decider)
+
+    linkSetsToPlayers(players, names, sets)
+
+    players.sort(key=sort7225, reverse=True)
+
+    for i in range(0, 20):
+        print(i + 1, players[i].name, sort7225(players[i]))
+
+    top20 = []
+    for i in range(0, 20):
+        top20.append(players[i])
+
+    makeHead2Head(top20)
+
+
+decider = SetDecider(0)
+
+sets = getAllSetsWith(decider)
+
 players = []
-filename = "HeadToHead/Fall 2022/Keepers of the North #12.csv"
+names = []
 
-getOneGameFive(filename, names, players)
-# getAllGameFives(names, players)
-# getb05(names, players)
-for i in players:
-    i.displaySets()
+linkSetsToPlayers(players, names, sets)
 
+index = names.index("Failbot")
+person = players[index]
+person.displayTotalRecord()
 
-"""
-Tournaments: 
-LGS: 
-https://braacket.com/tournament/C63AA01C-2C2F-4405-964A-86CC007D8051/match
-Keepers of the North:
-https://braacket.com/tournament/7E937162-5BFF-4E12-ADC9-DCD4F8062813/match
-Med City #100:
-https://braacket.com/tournament/0F138AAC-8338-49F5-A364-9831A5AE94BA/match
+print(person.getSetCountWithPlayer("Vivian"))
 
+index2 = names.index("Vivian")
+person = players[index2]
+person.displayTotalRecord()
 
-"""
+print(person.getSetCountWithPlayer("Failbot"))
+print("Players:", len(players))
+
+seasons = ["Spring 2023", "Fall 2022", "Summer 2022"]
+addAllPlacements("tournaments.csv", seasons, players, names)
+
+count = 0
+activepeople = []
+for p in players:
+    if p.hasAttendedAtLeast(4):
+        count += 1
+        activepeople.append(p)
+activepeople.sort(key=winrateSort, reverse=True)
+
+for i in range (0, len(activepeople)):
+    print (str(i) + ':', activepeople[i].name, winrateSort(activepeople[i]) * 100)
