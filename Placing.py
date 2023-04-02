@@ -1,11 +1,12 @@
 class Placing:
     tournament = ""
+    date = ""
     place = 101
     entrants = 1
     points = 0
 
     def display(self):
-        print(self.tournament,self.entrants, self.place, self.points)
+        print(self.tournament, self.date, self.entrants, self.place, self.points)
 
 
     def getEqualorBetterPlacements(self, number):
@@ -30,8 +31,10 @@ class Placing:
             return (pow(2, n) + pow(2, (n - 1))) + 1, pow(2, n-1)
         return pow(2, n) + 1, pow(2, n-1)
 
-    def __init__(self, tournament, entrant, place):
+
+    def __init__(self, tournament, date, entrant, place):
         self.tournament = tournament
+        self.date = date
         self.entrants = entrant
         self.place = place
         self.points = ((10 * entrant) / (self.getEqualorBetterPlacements(place)))

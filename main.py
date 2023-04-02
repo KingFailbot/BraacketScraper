@@ -12,6 +12,9 @@ from Player import Player
 from set import Set
 from set import SetDecider
 
+from SeasonFinder import SeasonFinder
+
+
 def scrapeLast200Tournaments():
     r = requests.get('https://braacket.com/league/MNUltNew/tournament?rows=200')
     bracketURL = "https://braacket.com"
@@ -415,6 +418,7 @@ def scrapeLast200Placements():
 def calculateTournamentPoints(fileLocation, players, playernames):
     tournamentName = ''
     entrants = 0
+    date = ''
 
     with open(fileLocation, 'r', encoding= 'utf-8') as file:
         reader = csv.reader(file)
@@ -424,6 +428,7 @@ def calculateTournamentPoints(fileLocation, players, playernames):
             if count == 1:
                 header = row[0].split("\t")
                 tournamentName = header[0]
+                date = header[1]
                 entrants = int(header[3])
 
             if (count > 2):
@@ -437,7 +442,7 @@ def calculateTournamentPoints(fileLocation, players, playernames):
                 else:
                     alt = info [1]
                 # print(placement, tag, alt)
-                result = Placing(tournamentName, entrants, placement)
+                result = Placing(tournamentName, date, entrants, placement)
                 if playernames.__contains__(tag) == False:
                     playernames.append(tag)
                     thisPlayer = Player(tag)
@@ -771,6 +776,31 @@ def winrateSort(player):
 def attendanceSort(player):
     return player.tournamentsAttended()
 
+def spring2023AttendanceSort(player):
+    finder = SeasonFinder([3])
+    count = 0
+    for place in player.results:
+        if finder.isInSeason(place.date):
+            count += 1
+    return count
+
+
+def fall2022AttendanceSort(player):
+    finder = SeasonFinder([2])
+    count = 0
+    for place in player.results:
+        if finder.isInSeason(place.date):
+            count += 1
+    return count
+
+
+def summer2022AttendanceSort(player):
+    finder = SeasonFinder([1])
+    count = 0
+    for place in player.results:
+        if finder.isInSeason(place.date):
+            count += 1
+    return count
 
 def setsPlayedSort(player):
     return player.getTotalSets()
@@ -793,6 +823,7 @@ def getSetDistribution(sets):
 
 def sort7225(player):
     return player.get7525()
+
 
 def sort7525mypoints(player):
     return .75 * float(player.trueSkill) + .25 * float(player.points)
@@ -998,7 +1029,6 @@ def getAndCalculateStats():
             count += 1
 
 
-
 def makeHead2Head(players, filename):
 
     arr = [str(i + 1) for i in range(0, len(players))]
@@ -1196,7 +1226,76 @@ def updateAndMakeSpring2023():
     makeSpringH2Hs()
 
 
+def testSeasonFinder():
+    finder = SeasonFinder([1])
+    dates = ["01 April 2022", "01 May 2022", "01 June 2022", "01 July 2022", "01 August 2022", "01 September 2022",
+             "01 October 2022", "01 November 2022", "01 December 2022", "01 January 2023", "01 February 2023",
+             "01 March 2023", "01 April 2023", "01 May 2023", "01 June 2023", "01 July 2023", "01 August 2023",
+             "01 September 2023", "01 October 2023", "01 November 2023", "01 December 2023"]
+    for date in dates:
+        if finder.isInSeason(date):
+            print(date + " is TRUE")
+    print("\n\n\n")
 
+    finder = SeasonFinder([2])
+    for date in dates:
+        if finder.isInSeason(date):
+            print(date + " is TRUE")
+    print("\n\n\n")
+
+    finder = SeasonFinder([1,2])
+    for date in dates:
+        if finder.isInSeason(date):
+            print(date + " is TRUE")
+    print("\n\n\n")
+
+    finder = SeasonFinder([3])
+    for date in dates:
+        if finder.isInSeason(date):
+            print(date + " is TRUE")
+    print("\n\n\n")
+
+    finder = SeasonFinder([1, 3])
+    for date in dates:
+        if finder.isInSeason(date):
+            print(date + " is TRUE")
+    print("\n\n\n")
+
+    finder = SeasonFinder([4])
+    for date in dates:
+        if finder.isInSeason(date):
+            print(date + " is TRUE")
+    print("\n\n\n")
+
+    finder = SeasonFinder([5])
+    for date in dates:
+        if finder.isInSeason(date):
+            print(date + " is TRUE")
+    print("\n\n\n")
+
+
+def outputAttendance():
+    players = []
+    playernames = []
+
+    seasons = ["Spring 2023", "Fall 2022", "Summer 2022"]
+    # seasons = ["Spring 2023"]
+    addAllPlacements("tournaments.csv", seasons, players, playernames)
+
+    activePlayers = []
+    for p in players:
+        if p.hasAttendedAtLeast(5):
+            activePlayers.append(p)
+
+    filename = "attendance.csv"
+    activePlayers.sort(key=spring2023AttendanceSort, reverse=True)
+    with open(filename, 'w', newline='', encoding="utf-8") as csvfile:
+        writer = csv.writer(csvfile, delimiter="\t")
+        writer.writerow(["Player", "Spring 2023", "Fall 2022", "Summer 2022", "Total"])
+        for p in activePlayers:
+            writer.writerow(
+                [p.name, spring2023AttendanceSort(p), fall2022AttendanceSort(p), summer2022AttendanceSort(p),
+                 attendanceSort(p)])
 
 
 
