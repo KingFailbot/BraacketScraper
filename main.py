@@ -468,7 +468,13 @@ def addAllPlacements(file, cond, players, playernames):
         dates = []
         for row in reader:
             if count > 0:
-                if(cond.__contains__(getSeasonName(row[1]))):
+                # if(cond.__contains__(getSeasonName(row[1]))):
+                print(row[1])
+                print(cond.getSeasonName(row[1]))
+                print(cond.inWhichSeason(row[1]))
+                # print(cond.isInSeason(row[1]))
+                if(cond.isInSeason(row[1])):
+                    print("IS IN SEASON")
                     tournaments.append(row[0])
                     dates.append(row[1])
             count += 1
@@ -479,7 +485,7 @@ def addAllPlacements(file, cond, players, playernames):
         count += 1
 
 
-def printAllAlts():
+def writeAllAlts():
 
     # fileLocation = "Summer 2022/Inver Grove Fights #26.csv"
 
@@ -488,7 +494,8 @@ def printAllAlts():
     # filenames = ["Summer 2022/Inver Grove Fights #26.csv", "Summer 2022/Inver Grove Fights #29.csv"]
     """
     with open("tournaments.csv", 'r') as file:
-        reader = csv.reader(file)
+        reader = csv.rea
+        der(file)
         for row in reader:
             if count > 0:
                 content = 'All tournaments/' + row[0] + '.csv'
@@ -769,12 +776,13 @@ def setDeciderTester():
                 print("Set:", set.winner, "Iter:", i)
 
 
-def winrateSort(player):
+def winRateSort(player):
     return player.getWinPercent()
 
 
 def attendanceSort(player):
     return player.tournamentsAttended()
+
 
 def spring2023AttendanceSort(player):
     finder = SeasonFinder([3])
@@ -801,6 +809,7 @@ def summer2022AttendanceSort(player):
         if finder.isInSeason(place.date):
             count += 1
     return count
+
 
 def setsPlayedSort(player):
     return player.getTotalSets()
@@ -1019,7 +1028,15 @@ def getAndCalculateStats():
     names = []
     getQualifiedPlayers("Rankings\\Spring 2023\\Trueskill.csv", "Rankings\\Spring 2023\\Braacket.csv", players, names)
     print("Names:", len(names), "Players:", len(players))
+
+    index = names.index("GodIMissHer")
+    del names[index]
+    del players[index]
+
     players.sort(key=sort7225, reverse=True)
+
+
+
     with open("StatPR.csv", 'w', newline='', encoding="utf-8") as csvfile:
         writer = csv.writer(csvfile, delimiter="\t")
         writer.writerow(["Rank", "Player", "Points", "Trueskill, Braacket"])
@@ -1180,10 +1197,10 @@ def showWinRate():
         if p.hasAttendedAtLeast(4):
             count += 1
             activepeople.append(p)
-    activepeople.sort(key=winrateSort, reverse=True)
+    activepeople.sort(key=winRateSort, reverse=True)
 
     for i in range(0, len(activepeople)):
-        print(str(i) + ':', activepeople[i].name, winrateSort(activepeople[i]) * 100)
+        print(str(i) + ':', activepeople[i].name, winRateSort(activepeople[i]) * 100)
 
 
 def makeFullSpring2023H2H():
@@ -1191,9 +1208,11 @@ def makeFullSpring2023H2H():
     players = []
     getQualifiedPlayers("Rankings\\Spring 2023\\Trueskill.csv", "Rankings\\Spring 2023\\Braacket.csv", players, names)
 
+    """
     index = names.index("GodIMissHer")
     del names[index]
     del players[index]
+    """
     qualified = len(players)
 
     decider = SetDecider(8)
@@ -1298,4 +1317,34 @@ def outputAttendance():
                  attendanceSort(p)])
 
 
+players = []
+names = []
 
+decider = SetDecider(8)
+
+sets = getAllSetsWith(decider)
+finder = SeasonFinder([3])
+
+linkSetsToPlayers(players,names, sets)
+print(len(players), len(names))
+addAllPlacements('tournaments.csv', finder, players, names)
+
+
+
+getQualifiedPlayers("Rankings\\Spring 2023\\Trueskill.csv", "Rankings\\Spring 2023\\Braacket.csv", players, names)
+
+newPlayers = []
+for p in players:
+    if p.hasAttendedAtLeast(4):
+        newPlayers.append(p)
+
+newPlayers.sort(key=sort7525mypoints, reverse=True)
+
+
+with open("StatPRModified.csv", 'w', newline='', encoding="utf-8") as csvfile:
+    writer = csv.writer(csvfile, delimiter="\t")
+    writer.writerow(["Rank", "Player", "Points", "Trueskill", "Manual Placement", "Braacket"])
+    count = 1
+    for i in newPlayers:
+        writer.writerow([count, i.name, sort7525mypoints(i), i.trueSkill, i.points, i.braacket])
+        count += 1
