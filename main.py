@@ -14,6 +14,10 @@ from set import SetDecider
 
 from SeasonFinder import SeasonFinder
 
+def addOutputDirToStart(filename):
+    outputDirectory = "Output"
+    return outputDirectory + "\\" + filename
+
 
 def scrapeLast200Tournaments():
     r = requests.get('https://braacket.com/league/MNUltNew/tournament?rows=200')
@@ -122,7 +126,7 @@ def scrapeLast200Tournaments():
     areEqual = len(tournaments) == len(entrantCounts)
     areEqual = areEqual & (len(tournaments) == len(links))
     if areEqual:
-        with open('Last200Tournaments.csv', 'w', newline='') as new_file:
+        with open(addOutputDirToStart('Last200Tournaments.csv'), 'w', newline='') as new_file:
 
             pairs = []
             for t, d, e, m, l in zip(tournaments, dates, entrantCounts, matches, links):
@@ -369,9 +373,9 @@ def scrapeLast200Placements():
 
     # url = "https://braacket.com/tournament/233866E7-DAC3-420B-B08C-1C014FEB2206"
     placementWB = Workbook()
-    placementFile = 'PR tournaments.xls'
+    placementFile = addOutputDirToStart('PR tournaments.xls')
     headToHeadWB = Workbook()
-    headToHeadFile = 'HeadToHead.xls'
+    headToHeadFile = addOutputDirToStart('HeadToHead.xls')
 
     time.sleep(2)
     #  newlinks = ["https://braacket.com/tournament/233866E7-DAC3-420B-B08C-1C014FEB2206",
@@ -408,7 +412,7 @@ def scrapeLast200Placements():
     placementWB.save(placementFile)
     headToHeadWB.save(headToHeadFile)
 
-    with open("tournaments.csv", 'w', newline='') as csvfile:
+    with open(addOutputDirToStart("tournaments.csv"), 'w', newline='') as csvfile:
         writer = csv.writer(csvfile, delimiter="\t")
         writer.writerow(titleFields)
         for i in range(0, len(names)):
@@ -1317,34 +1321,35 @@ def outputAttendance():
                  attendanceSort(p)])
 
 
-players = []
-names = []
+def makeTrueSpring23StatPr():
+    players = []
+    names = []
 
-decider = SetDecider(8)
+    decider = SetDecider(8)
 
-sets = getAllSetsWith(decider)
-finder = SeasonFinder([3])
+    sets = getAllSetsWith(decider)
+    finder = SeasonFinder([3])
 
-linkSetsToPlayers(players,names, sets)
-print(len(players), len(names))
-addAllPlacements('tournaments.csv', finder, players, names)
+    linkSetsToPlayers(players, names, sets)
+    print(len(players), len(names))
+    addAllPlacements('tournaments.csv', finder, players, names)
+
+    getQualifiedPlayers("Rankings\\Spring 2023\\Trueskill.csv", "Rankings\\Spring 2023\\Braacket.csv", players, names)
+
+    newPlayers = []
+    for p in players:
+        if p.hasAttendedAtLeast(4):
+            newPlayers.append(p)
+
+    newPlayers.sort(key=sort7525mypoints, reverse=True)
+
+    with open("StatPRModified.csv", 'w', newline='', encoding="utf-8") as csvfile:
+        writer = csv.writer(csvfile, delimiter="\t")
+        writer.writerow(["Rank", "Player", "Points", "Trueskill", "Manual Placement", "Braacket"])
+        count = 1
+        for i in newPlayers:
+            writer.writerow([count, i.name, sort7525mypoints(i), i.trueSkill, i.points, i.braacket])
+            count += 1
 
 
-
-getQualifiedPlayers("Rankings\\Spring 2023\\Trueskill.csv", "Rankings\\Spring 2023\\Braacket.csv", players, names)
-
-newPlayers = []
-for p in players:
-    if p.hasAttendedAtLeast(4):
-        newPlayers.append(p)
-
-newPlayers.sort(key=sort7525mypoints, reverse=True)
-
-
-with open("StatPRModified.csv", 'w', newline='', encoding="utf-8") as csvfile:
-    writer = csv.writer(csvfile, delimiter="\t")
-    writer.writerow(["Rank", "Player", "Points", "Trueskill", "Manual Placement", "Braacket"])
-    count = 1
-    for i in newPlayers:
-        writer.writerow([count, i.name, sort7525mypoints(i), i.trueSkill, i.points, i.braacket])
-        count += 1
+scrapeLast200Placements()
