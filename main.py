@@ -620,7 +620,7 @@ def writeAllAlts():
     players.sort(reverse=True)
     count = 0
 
-    for p in players: # prints all known alternate tags
+    for p in players:  # prints all known alternate tags
         if p.tournamentsAttended() >= 1:  # if the player has attended a tournament (safety feature)
             print(p.name)
             p.printAlts()
@@ -637,18 +637,35 @@ def writeAllAlts():
             writer.writerow(row)
 
 
-def getHeadToHead(filename):
-    url = "https://braacket.com/tournament/1F27B9A5-28A0-4C71-9191-AB690A07A1CD"
+"""scraping function for a specific headToHead page
+
+:param url, the url of the tournament splash page
+
+:param titleFields, the fields to be written at the top of the spreadsheet
+
+:param fields, the fields from the tournament to write
+
+:param headToHeadWB, the xls file to write sets to
+
+:param headToHeadFile, the xls file location
+
+:param players, the list of players for the tournament
+
+:param alts, the parallel list of alternate tags for the tournament 
+"""
 
 
 def getOneHeadToHead(url, titleFields, fields, headToHeadWB, headToHeadFile, players, alts):
     url = url + '/match'
     print(url)
-    r = requests.get(url)
+    r = requests.get(url)  # request the URL/page info
     print(r)
+
     soup = BeautifulSoup(r.content, 'html.parser')
     Sets = []
     URLs = []
+
+    # some filtering to get all links for stages of the tournament
     for link in soup.find_all('a'):
         text = link.get('href')
         delimiter = -1
@@ -659,33 +676,37 @@ def getOneHeadToHead(url, titleFields, fields, headToHeadWB, headToHeadFile, pla
             text = removeIfContains(text, '?')
             print(text)
             URLs.append(text)
-    if len(URLs) == 1:
+
+    if len(URLs) == 1:  # if there is more than one URL, it is a multiphase tournament
         severalURLs = False
     else:
         severalURLs = True
-    if not severalURLs:
+
+    if not severalURLs:  # if there is only one phase, standard logic applies
         scrapeOneH2HPage(url, Sets, players, alts, soup, severalURLs)
         row3 = ['Set Num', 'Winner', 'Loser', 'WS', 'LS', 'Best of', 'Game']
-    else:
+    else:  # if there are seperate URLs, then note that in the spreadsheet
         print("MULTIPLE PHASES:")
         row3 = ['Set Num', 'Winner', 'Loser', 'WS', 'LS', 'Best of', 'Game', '**MULTIPLE BRACKET PHASES**']
-        for phase in URLs:
+        for phase in URLs:  # scrape every phase
             scrapeOneH2HPage(phase, Sets, players, alts, soup, severalURLs)
     Sets = sorted(Sets)
 
     date = fields[1]
-    date = getSeasonName(date)
+    season = getSeasonName(date)  # get the season name for the directory
     tournamentName = fields[0]
 
-    path = "HeadToHead/" + date + "/" + tournamentName + ".csv"
+    path = "HeadToHead/" + season + "/" + tournamentName + ".csv"
 
-    with open(path, 'w', newline='', encoding="utf-8") as csvfile:
+    with open(path, 'w', newline='', encoding="utf-8") as csvfile:  # write every set for this tournament
         writer = csv.writer(csvfile, delimiter="\t")
         writer.writerow(titleFields)
         writer.writerow(fields)
         writer.writerow(row3)
         for i in Sets:
             writer.writerow([i.order, i.winner, i.loser, i.winningScore, i.losingScore, i.outOf, i.game])
+
+    # get an under 30 character sheet name
     sheetName = tournamentName
     stringLength = len(sheetName)
     if stringLength > 30:
@@ -695,9 +716,11 @@ def getOneHeadToHead(url, titleFields, fields, headToHeadWB, headToHeadFile, pla
     for i in range(0, len(titleFields)):
         sheet.write(0, i, titleFields[i])
         sheet.write(1, i, fields[i])
-
+    # write the 3rd header line
     for i in range(0, len(row3)):
         sheet.write(2, i, row3[i])
+
+    # write every set on a line
     for i in range(0, len(Sets)):
         sheet.write(3 + i, 0, Sets[i].order)
         sheet.write(3 + i, 1, Sets[i].winner)
@@ -708,75 +731,90 @@ def getOneHeadToHead(url, titleFields, fields, headToHeadWB, headToHeadFile, pla
         sheet.write(3 + i, 6, Sets[i].game)
     headToHeadWB.save(headToHeadFile)
 
-    """
-    pathname = Path("HeadToHead/" + date)
-    print(pathname)
-    pathname.mkdir(parents=True)
-    fpath = (pathname / filename).with_suffix('.csv')
-    print(fpath)
-    """
+
+"""scrapes one headToHead Phase
+
+if there is more than one head to head phase, it waits to call a scrape. Takes a parallel list of players and alts
+
+:param url the url of the phase, only used if multiple phase
+
+:param sets, the list of sets so far (empty unless a multiphase tournament)
+
+:param players the list of players
+
+:param alts, the list of alts
+
+:param soup, the web scraping object to be used, used unless the tournament is multiphase
+
+:param multiple, boolean value for if there are multiple phases
+"""
 
 
 def scrapeOneH2HPage(url, sets, players, alts, soup, multiple):
-    if multiple:
+    if multiple:  # if there are multiple phases, create a new soup object
         time.sleep(2)
         r = requests.get(url)
         print(r)
         soup = BeautifulSoup(r.content, 'html.parser')
+    # thisSet up empty lists to be filled with data
     winners = []
     losers = []
     winScore = []
     loseScore = []
     order = []
+
+    # used to check if there are the same number of players and alts
     len1 = len(players)
     len2 = len(alts)
 
-    if len1 > len2:
+    if len1 > len2:  # bad things happen if this is the case, this means there is a mistake on the braacket page
         for i in range(0, len2):
             print(players[i], alts[i])
         print(players[len1 - 1])
         print("NOT EQUAL!!!")
-    elif len2 > len1:
+
+    elif len2 > len1:  # bad things happen if this is the case, this means there is a mistake on the braacket page
         for i in range(0, len1):
             print(players[i], alts[i])
         print(alts[len2 - 1])
         print("NOT EQUAL!!!")
-    else:
+    else:  # this is good
         print("Equal")
 
     count = 0
-    for item in soup.find_all('table', class_='tournament_encounter-row'):
+    for item in soup.find_all('table', class_='tournament_encounter-row'):  # every thisSet on the webpage
         count = count + 1
 
         entries = item.getText().split("\n")
-        smallcount = 0
+        # smallCount = 0
         goodData = []
         for j in entries:
             j = removeWhiteSpace(j)
-            if (j != '' and j != ' '):
+            if j != '' and j != ' ':  # if j isn't empty
                 goodData.append(j)
 
-                smallcount += 1
-        if (len(goodData) > 4):
-            if (not ((int(goodData[2]) == -1) or (int(goodData[4]) == -1))):
-                order.append(int(goodData[0]))
-                if int(goodData[2]) > int(goodData[4]):
+                # smallCount += 1
+        if len(goodData) > 4:  # if there are enough elements to fill a full set
+            if not ((int(goodData[2]) == -1) or (int(goodData[4]) == -1)):  # check for DQs, those sets do not count
+                # and are denoted by a -1 score
+                order.append(int(goodData[0]))  # add the sets number to order (this number is useful for ordering)
+                if int(goodData[2]) > int(goodData[4]):  # if the first player won
                     # print("Winner:", goodData[1])
                     winners.append(replaceAltWithPlayer(goodData[1], players, alts))
                     winScore.append(int(goodData[2]))
                     # print("Loser:", goodData[3])
                     losers.append(replaceAltWithPlayer(goodData[3], players, alts))
                     loseScore.append(int(goodData[4]))
-                else:
+                else:  # the second player one
                     # print("Loser:", goodData[1])
                     losers.append(replaceAltWithPlayer(goodData[1], players, alts))
                     loseScore.append(int(goodData[2]))
                     # print("Winner:", goodData[3])
                     winners.append(replaceAltWithPlayer(goodData[3], players, alts))
                     winScore.append(int(goodData[4]))
-    for i in range(0, len(winners)):
-        set = Set(winners[i], losers[i], winScore[i], loseScore[i], order[i])
-        sets.append(set)
+    for i in range(0, len(winners)):  # for set winner, create a set and append it to the sets array
+        thisSet = Set(winners[i], losers[i], winScore[i], loseScore[i], order[i])
+        sets.append(thisSet)
 
 
 def getSeasonNameTest():
@@ -1443,4 +1481,4 @@ def makeTrueSpring23StatPr():
             count += 1
 
 
-writeAllAlts()
+scrapeLast200PlacesAndSetRecords()
