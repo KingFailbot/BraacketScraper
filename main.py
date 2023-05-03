@@ -817,6 +817,12 @@ def scrapeOneH2HPage(url, sets, players, alts, soup, multiple):
         sets.append(thisSet)
 
 
+"""A test function
+
+Shows if the output of the getSeasonName function makes sense
+"""
+
+
 def getSeasonNameTest():
     print(getSeasonName("05 April 2022"))
     print(getSeasonName("01 May 2022"))
@@ -841,6 +847,11 @@ def getSeasonNameTest():
         print("false")
 
 
+"""Tests if one tournament can be scraped correctly
+
+"""
+
+
 def testScrapeOneTournament():
     wb = Workbook()
     url = "https://braacket.com/tournament/228979B6-A101-486A-AADE-73047E5F0025"
@@ -850,61 +861,88 @@ def testScrapeOneTournament():
     scrapeATournament(url, wb, placementFile, wb2, file)
 
 
+"""Data collection function
+
+gives a list of sets that follow a SetDecider condition
+
+:param cond a SetDecider with a condition
+
+:returns a list of all valid sets
+"""
+
+
 def getAllSetsWith(cond):
+    # set up lists to be filled
     dates = []
     tournaments = []
     sets = []
-    with open(addOutputDirToStart("tournaments.csv"), 'r', encoding='utf-8') as csvfile:
-        reader = csv.reader((csvfile))
+    with open(addOutputDirToStart("tournaments.csv"), 'r', encoding='utf-8') as csvfile:  # open spreadsheet with all
+        # tournaments
+        reader = csv.reader(csvfile)
         count = 0
 
-        for row in reader:
+        for row in reader:  # gets dates and tournament names for all tournaments
             if count > 0:
                 info = row[0].split('\t')
                 tournaments.append(info[0])
                 dates.append(info[1])
             count += 1
-    for i in range(0, len(tournaments)):
+
+    for i in range(0, len(tournaments)):  # for every tournament get sets that follow the condition
         filename = "HeadToHead\\"
         filename = filename + getSeasonName(dates[i]) + '\\' + tournaments[i] + '.csv'
         getOneTournamentSetsWith(cond, sets, filename)
     return sets
 
 
+"""goes through one tournament and finds valid sets
+
+:param cond is a SetDecider that has the desired settings
+
+:param sets, the list of sets
+
+:param filename, the filename where the tournament is located
+"""
+
+
 def getOneTournamentSetsWith(cond, sets, filename):
-    with open(filename, 'r', encoding='utf-8') as file:
+    with open(filename, 'r', encoding='utf-8') as file:  # open the tournament sets file
         reader = csv.reader(file, delimiter='\t')
         count = 0
         for row in reader:
-            if count == 1:
+            if count == 1:  # get the date and tournament name from the header
                 # tournamentName = row[0].split('\t')[0]
                 tournamentName = row[0]
                 date = row[1]
 
-            if count > 2:
+            if count > 2:  # for lines past the header
                 if row[0] != '':
-                    # info = row[0].split('\t')
-                    # set = Set(info[1], info[2], int(info[3]), int(info[4]), int(info[0]))
-                    set = Set(row[1], row[2], int(row[3]), int(row[4]), int(row[0]))
-                    set.addTournament(tournamentName)
-                    set.addDate(date)
-                    if cond.decide(set):
-                        sets.append(set)
+                    thisSet = Set(row[1], row[2], int(row[3]), int(row[4]), int(row[0]))  # add the data to the set
+                    thisSet.addTournament(tournamentName)  # add the tournament to the set
+                    thisSet.addDate(date)
+                    if cond.decide(thisSet):  # if the set is in the criteria, then add it to the list
+                        sets.append(thisSet)
             count = count + 1
+
+
+"""A test function for the setDecider class.
+
+"""
 
 
 def setDeciderTester():
     print("Testing...")
     sets = []
-    set = Set("Loaf", "Lucky", 3, 2, 1)
-    sets.append(set)
+    thisSet = Set("Loaf", "Lucky", 3, 2, 1)
+    sets.append(thisSet)
     set2 = Set("Violet", "Meatflap", 2, 1, 1)
     sets.append(set2)
     set3 = Set("Ventura", "Big Will", 2, 0, 1)
     sets.append(set3)
-    set4 = Set("Truth", "Barb", 3, 0, 1)
+    set4 = Set("Truth", "Big Will", 3, 0, 1)
     sets.append(set4)
     decider = SetDecider(1)
+
     if decider.decide(set3):
         print("TRUE")
     else:
@@ -912,17 +950,32 @@ def setDeciderTester():
     for i in range(0, 5):
         decider.mode = i
         print("Round", i)
-        for set in sets:
-            if decider.decide(set):
-                print("Set:", set.winner, "Iter:", i)
+        for thisSet in sets:
+            if decider.decide(thisSet):
+                print("Set:", thisSet.winner, "Iter:", i)
+
+
+"""Utility sorting key function that sorts players by their winRate.
+
+"""
 
 
 def winRateSort(player):
     return player.getWinPercent()
 
 
+"""Utility sorting key function that sorts players by the number of tournaments they've attended
+
+"""
+
+
 def attendanceSort(player):
     return player.tournamentsAttended()
+
+
+"""Utility sorting key function that sorts by attendance in the Spring 2023 season
+
+"""
 
 
 def spring2023AttendanceSort(player):
@@ -934,6 +987,11 @@ def spring2023AttendanceSort(player):
     return count
 
 
+"""Utility sorting key function that sorts by attendance in the Fall 2022 season
+
+"""
+
+
 def fall2022AttendanceSort(player):
     finder = SeasonFinder([2])
     count = 0
@@ -941,6 +999,11 @@ def fall2022AttendanceSort(player):
         if finder.isInSeason(place.date):
             count += 1
     return count
+
+
+"""Utility sorting key function that sorts by attendance in the Summer 2022 season
+
+"""
 
 
 def summer2022AttendanceSort(player):
@@ -952,31 +1015,63 @@ def summer2022AttendanceSort(player):
     return count
 
 
+"""Utility sorting key function that sorts players by sets played
+
+"""
+
+
 def setsPlayedSort(player):
     return player.getTotalSets()
 
 
+"""Utility function that gets the distribution of game counts of a list of sets
+
+:param sets a list of sets
+
+:return sweep, the number of sets where only one player won matches
+
+:return threeOne, the number of sets that were 3-1
+
+:return lastGame, the number of sets that went to the last possble game
+"""
+
+
 def getSetDistribution(sets):
     sweep = 0
-    threeone = 0
-    threetwo = 0
+    threeOne = 0
+    lastGame = 0
 
-    for set in sets:
-        if (set.losingScore == 0):
+    for thisSet in sets:
+        if thisSet.losingScore == 0:  # if the losing score is zero
             sweep += 1
-        elif (set.outOf == set.game):
-            threetwo += 1
+        elif thisSet.outOf == thisSet.game:  # if the game count and possible game count are equal
+            lastGame += 1
         else:
-            threeone += 1
-    return sweep, threeone, threetwo
+            threeOne += 1
+    return sweep, threeOne, lastGame
+
+
+"""Utility sorting key function that sorts by a 75/25 average of Trueskill and Attendance
+
+"""
 
 
 def sort7225(player):
     return player.get7525()
 
 
-def sort7525mypoints(player):
+"""Utility sorting key function that sorts by 75/25 average with new method for Attendance
+
+"""
+
+
+def sortCurrent7525(player):
     return .75 * float(player.trueSkill) + .25 * float(player.points)
+
+
+"""Utility sorting key function that sorts by a 90/10 average
+
+"""
 
 
 def sort9010(player):
@@ -1281,14 +1376,14 @@ def showTrue7525():
                         playernames)
     addAllPlacements(addOutputDirToStart("tournaments.csv"), seasons, players, playernames)
 
-    players.sort(key=sort7525mypoints, reverse=True)
+    players.sort(key=sortCurrent7525, reverse=True)
     active = []
     for p in players:
         if p.hasAttendedAtLeast(4):
             active.append(p)
 
     for i in range(0, len(active)):
-        print(i + 1, active[i].name, sort7525mypoints(active[i]))
+        print(i + 1, active[i].name, sortCurrent7525(active[i]))
 
 
 def showWinRate():
@@ -1470,14 +1565,14 @@ def makeTrueSpring23StatPr():
         if p.hasAttendedAtLeast(4):
             newPlayers.append(p)
 
-    newPlayers.sort(key=sort7525mypoints, reverse=True)
+    newPlayers.sort(key=sortCurrent7525, reverse=True)
 
     with open(addOutputDirToStart("StatPRModified.csv"), 'w', newline='', encoding="utf-8") as csvfile:
         writer = csv.writer(csvfile, delimiter="\t")
         writer.writerow(["Rank", "Player", "Points", "Trueskill", "Manual Placement", "Braacket"])
         count = 1
         for i in newPlayers:
-            writer.writerow([count, i.name, sort7525mypoints(i), i.trueSkill, i.points, i.braacket])
+            writer.writerow([count, i.name, sortCurrent7525(i), i.trueSkill, i.points, i.braacket])
             count += 1
 
 
