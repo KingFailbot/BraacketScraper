@@ -44,6 +44,7 @@ class Set:
     def __ne__(self, other):
         return self.order != other.order
 
+
 class SetDecider:
     def __init__(self, mode):
         self.mode = mode

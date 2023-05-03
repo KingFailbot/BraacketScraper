@@ -589,8 +589,8 @@ def addAllPlacements(file, cond, players, playerNames):
         dates = []
         for row in reader:
             if count > 0:
-                print(row[1])
-                print(cond.inWhichSeason(row[1]))
+                # print(row[1])
+                # print(cond.inWhichSeason(row[1]))
                 # print(cond.isInSeason(row[1]))
                 if cond.isInSeason(row[1]):  # if the tournament follows condition, add it to list to be read
                     tournaments.append(row[0])
@@ -685,7 +685,7 @@ def getOneHeadToHead(url, titleFields, fields, headToHeadWB, headToHeadFile, pla
     if not severalURLs:  # if there is only one phase, standard logic applies
         scrapeOneH2HPage(url, Sets, players, alts, soup, severalURLs)
         row3 = ['Set Num', 'Winner', 'Loser', 'WS', 'LS', 'Best of', 'Game']
-    else:  # if there are seperate URLs, then note that in the spreadsheet
+    else:  # if there are separate URLs, then note that in the spreadsheet
         print("MULTIPLE PHASES:")
         row3 = ['Set Num', 'Winner', 'Loser', 'WS', 'LS', 'Best of', 'Game', '**MULTIPLE BRACKET PHASES**']
         for phase in URLs:  # scrape every phase
@@ -1032,7 +1032,7 @@ def setsPlayedSort(player):
 
 :return threeOne, the number of sets that were 3-1
 
-:return lastGame, the number of sets that went to the last possble game
+:return lastGame, the number of sets that went to the last possible game
 """
 
 
@@ -1078,20 +1078,41 @@ def sort9010(player):
     return .90 * float(player.trueSkill) + .10 * float(player.braacket)
 
 
+"""Links sets to their respective players 
+
+:param players, the list of players
+
+:param names, the parallel list of player tags
+
+:sets the list of sets to be linked
+"""
+
+
 def linkSetsToPlayers(players, names, sets):
     for SET in sets:
-        if (not (names.__contains__(SET.winner))):
+        if not (names.__contains__(SET.winner)):  # if the winner of the set is not in list, add them to the list
             names.append(SET.winner)
             tempPlayer = Player(SET.winner)
             players.append(tempPlayer)
-        if (not (names.__contains__(SET.loser))):
+        if not (names.__contains__(SET.loser)):  # if the loser is not in the list, add them to the list
             names.append(SET.loser)
             tempPlayer = Player(SET.loser)
             players.append(tempPlayer)
+
+        # add sets to winners and losers
         index = names.index(SET.winner)
         players[index].addWin(SET)
         index = names.index(SET.loser)
         players[index].addLoss(SET)
+
+
+"""scraping function for a ranking
+
+:param trueskill, the url for the ranking to be scraped
+
+:param pathname, where the ranking should be saved
+
+"""
 
 
 def scrapeRanking(trueskill, pathname):
@@ -1099,76 +1120,93 @@ def scrapeRanking(trueskill, pathname):
     r = requests.get(url)
     print(r)
     soup = BeautifulSoup(r.content, 'html.parser')
+    # request page
+    # set up lists
     players = []
     scores = []
     count = 0
+    # players are in the ellipsis class
     e = soup.find_all('td', class_='ellipsis')
     size = len(e)
+
     for row in e:
-        if (count > 7 and count != size - 1):
+        if count > 7 and count != size - 1:  # only past the 8th entry and before the last
             row = removeWhiteSpace(row.getText())
-            if count == 94:
-                print(row)
             length = len(row)
-            if row[length - 1] == ' ':
+            if row[length - 1] == ' ':  # if there is empty space at the end, remove it (braacket is weird)
                 row = row[:-1]
 
             print(count - 7, row)
             players.append(row)
         count += 1
-    e = soup.find_all('td', class_='min text-right')
+
+    e = soup.find_all('td', class_='min text-right')  # now we get the points for the players
     for row in e:
         # print(row.getText())
-        scores.append(row.getText())
+        scores.append(row.getText())  # points behave much better than tags
     titleFields = ["Rank", "Tag", "Points"]
 
-    with open(pathname, 'w', newline='', encoding="utf-8") as csvfile:
+    with open(pathname, 'w', newline='', encoding="utf-8") as csvfile:  # write ranking to a spreadsheet
         writer = csv.writer(csvfile, delimiter="\t")
         writer.writerow(titleFields)
         for i in range(0, len(players)):
             writer.writerow([i + 1, players[i], scores[i]])
 
 
-def displayTournamentsAttendedInSpring2023():
-    decider = SetDecider(7)
+"""Example function that shows tournaments attended and sets played by select players in Spring 2023
 
-    sets = getAllSetsWith(decider)
+Also shows the number of tournaments attended by every player
+"""
+
+
+def displayTournamentsAttendedInSpring2023():
+    decider = SetDecider(8)  # SetDecider only concerned with Spring 2023
+
+    sets = getAllSetsWith(decider)  # get all sets with that condition
 
     players = []
     names = []
 
-    linkSetsToPlayers(players, names, sets)
+    linkSetsToPlayers(players, names, sets)  # link those sets to the players
 
     index = names.index("Failbot")
     person = players[index]
     person.displayTotalRecord()
 
-    print(person.getSetCountWithPlayer("Vivian"))
+    print(person.getSetCountWithPlayer("BIG SWIFTIE"))
 
-    index2 = names.index("Vivian")
+    index2 = names.index("BIG SWIFTIE")
     person = players[index2]
     person.displayTotalRecord()
 
     print(person.getSetCountWithPlayer("Failbot"))
     print("Players:", len(players))
 
-    # seasons = ["Spring 2023", "Fall 2022", "Summer 2022"]
-    seasons = ["Spring 2023"]
+    # how to use SeasonFinder 3 is Spring 2023
+    seasons = SeasonFinder([3])
     addAllPlacements(addOutputDirToStart("tournaments.csv"), seasons, players, names)
     print("Players:", len(players), "Names", len(names))
+
     count = 0
-    activepeople = []
-    for p in players:
+    activePeople = []
+    for p in players:  # remove players who have gone to less than 4 tournaments
         if p.hasAttendedAtLeast(4):
             count += 1
-            activepeople.append(p)
+            activePeople.append(p)
 
     print("Players with 4 tournaments:", count)
 
-    activepeople.sort(key=attendanceSort)
-    # activepeople.sort(key=setsPlayedSort)
-    for p in activepeople:
+    activePeople.sort(key=attendanceSort, reverse=True)
+
+    for p in activePeople:  # print all active players
         print(p.name, p.tournamentsAttended(), p.tournamentsAttended())
+
+
+"""Scrapes two rankings
+
+Scrapes both trueskill and braacket
+
+"""
 
 
 def scrapeTwoRankings():
@@ -1182,12 +1220,27 @@ def scrapeTwoRankings():
     scrapeRanking(url2, dir2)
 
 
+"""gets all of the qualified players and links them to their rankings
+
+:param trueskill the first ranking location
+
+:param braacket the second ranking location
+
+:param players the list of players
+
+:param names the parallel array of names
+
+"""
+
+
 def getQualifiedPlayers(trueskill, braacket, players, names):
     people1 = []
     score1 = []
     people2 = []
     score2 = []
-    with open(trueskill, 'r', encoding='utf-8') as file:
+    # crate lists
+
+    with open(trueskill, 'r', encoding='utf-8') as file:  # read all people in the first ranking
         reader = csv.reader(file, delimiter='\t')
         count = 0
 
@@ -1197,7 +1250,7 @@ def getQualifiedPlayers(trueskill, braacket, players, names):
                 score1.append(row[2])
             count += 1
 
-    with open(braacket, 'r', encoding='utf-8') as file:
+    with open(braacket, 'r', encoding='utf-8') as file:  # read all people in the second ranking
         reader = csv.reader(file, delimiter='\t')
         count = 0
 
@@ -1210,21 +1263,21 @@ def getQualifiedPlayers(trueskill, braacket, players, names):
     print("Trueskill Length:", len(people1))
     print("Braacket Length:", len(people2))
 
-    badInput = []
+    badInput = []  # list for people only in ranking
     for i in range(0, len(people1)):
         temp = people1[i]
-        bool = people2.__contains__(temp)
+        doesContain = people2.__contains__(temp)  # is the player from people 1 in people 2
 
-        if (not bool):
+        if not doesContain:  # if not, add them to bad input
             badInput.append(i)
 
-    for i in reversed(badInput):
+    for i in reversed(badInput):  # delete people back to front
         del people1[i]
-        del people2[i]
+        del people2[i]  # this logic works because bad input appears at the end of arrays
 
-    badInput = []
+    badInput = []  # do the same logic again, put swap the lists
     for i in range(0, len(people2)):
-        if (not people1.__contains__(people2[i])):
+        if not people1.__contains__(people2[i]):
             badInput.append(i)
 
     for i in reversed(badInput):
@@ -1234,18 +1287,18 @@ def getQualifiedPlayers(trueskill, braacket, players, names):
     print("Trueskill Length:", len(people1), "Score:", len(score1))
     print("Braacket Length:", len(people2), "Score:", len(score2))
 
-    for i in range(0, len(people1)):
+    for i in range(0, len(people1)):  # now add scores to everyone for the first ranking
         tag = people1[i]
-        if (not names.__contains__(tag)):
+        if not names.__contains__(tag):
             names.append(tag)
             temp = Player(tag)
             players.append(temp)
-        index = names.index(tag)
+        index = names.index(tag)  # find name in parallel list, use that to give them their score
         players[index].setTrueSkill(score1[i])
 
-    for i in range(0, len(people2)):
+    for i in range(0, len(people2)):  # now add scores to everyone for the second ranking
         tag = people2[i]
-        if (not names.__contains__(tag)):
+        if not names.__contains__(tag):
             names.append(tag)
             temp = Player(tag)
             players.append(temp)
@@ -1253,20 +1306,27 @@ def getQualifiedPlayers(trueskill, braacket, players, names):
         players[index].setBraacket(score2[i])
 
 
+"""gets the rankings for the spring season.
+
+Outputs to statPR.csv
+"""
+
+
 def getAndCalculateStats():
-    scrapeTwoRankings()
+    scrapeTwoRankings()  # scrape the rankings
     players = []
     names = []
     getQualifiedPlayers("Rankings\\Spring 2023\\Trueskill.csv", "Rankings\\Spring 2023\\Braacket.csv", players, names)
+    # link scores to players
     print("Names:", len(names), "Players:", len(players))
 
     index = names.index("GodIMissHer")
     del names[index]
     del players[index]
 
-    players.sort(key=sort7225, reverse=True)
+    players.sort(key=sort7225, reverse=True)  # sort the players from highest to lowest
 
-    with open(addOutputDirToStart("StatPR.csv"), 'w', newline='', encoding="utf-8") as csvfile:
+    with open(addOutputDirToStart("StatPR.csv"), 'w', newline='', encoding="utf-8") as csvfile:  # output to csv
         writer = csv.writer(csvfile, delimiter="\t")
         writer.writerow(["Rank", "Player", "Points", "Trueskill, Braacket"])
         count = 1
@@ -1275,81 +1335,111 @@ def getAndCalculateStats():
             count += 1
 
 
+"""creates a Head2Head generically
+
+Can create a H2H given that the players have sets linked to them
+
+:param players, a list of players to put on H2H, sets must be linked
+
+:param filename, the name of the file to save the sheet with
+"""
+
+
 def makeHead2Head(players, filename):
     arr = [str(i + 1) for i in range(0, len(players))]
     arr = ["#", ""] + arr
     for i in arr:
         print(i)
+    # create the number for ranking, and the # sign in front
 
     with open(addOutputDirToStart(filename), 'w', newline='', encoding="utf-8") as csvfile:
         writer = csv.writer(csvfile, delimiter="\t")
         writer.writerow(arr)
-        arr = [p.name for p in players]
-        arr = ['', ''] + arr + ["vs. Top 10", "vs. Top 20", "vs Field"]
+        arr = [p.name for p in players]  # adds every player to the row
+        arr = ['', ''] + arr + ["vs. Top 10", "vs. Top 20", "vs Field"]  # adds space for various information at the end
         writer.writerow(arr)
         for i in range(0, len(players)):
             wins = 0
             loss = 0
             count = 0
-            tenwin = 0
-            tenloss = 0
-            twentyloss = 0
-            twentywin = 0
+            tenWin = 0
+            tenLoss = 0
+            twentyWin = 0
+            twentyLoss = 0
+            # The above are used to keep track of set count with certain players
             for p in players:
                 tempWins, tempLoses = players[i].getSetIntsWith(p.name)
                 wins += tempWins
                 loss += tempLoses
                 count += 1
                 if count == 10:
-                    tenwin = wins
-                    tenloss = loss
+                    tenWin = wins
+                    tenLoss = loss
                 if count == 20:
-                    twentywin = wins
-                    twentyloss = loss
+                    twentyWin = wins
+                    twentyLoss = loss
 
             setTotal = str(len(players[i].setWins)) + " - " + str(len(players[i].setLoses))
-            tenTotal = str(tenwin) + " - " + str(tenloss)
-            twentyTotal = str(twentywin) + " - " + str(twentyloss)
+            tenTotal = str(tenWin) + " - " + str(tenLoss)
+            twentyTotal = str(twentyWin) + " - " + str(twentyLoss)
+            # adds these totals to the ends of the row later
             arr = [players[i].getSetCountWithPlayer(p.name) for p in players]
+            # gets set count with every Player in array
             arr = [str(i + 1), players[i].name] + arr
             arr = arr + [tenTotal, twentyTotal, setTotal]
-            writer.writerow(arr)
+            writer.writerow(arr)  # writes the row with all of this information
+
+
+"""Creates an example ranking with a 90/10 split
+
+"""
 
 
 def test9010():
     names = []
     players = []
     getQualifiedPlayers("Rankings\\Spring 2023\\Trueskill.csv", "Rankings\\Spring 2023\\Braacket.csv", players, names)
+
     index = names.index("GodIMissHer")
     del names[index]
     del players[index]
-    currPr = []
+
+    currPr = []  # the current rankings are the below players
     for i in players:
         currPr.append(i)
     currPr.sort(key=sort7225, reverse=True)
 
+    # this is the new ranking
     players.sort(key=sort9010, reverse=True)
     count = 0
 
     print("#, Tag, Score, Tag, 75/25 Score")
-    for i in range(0, len(players)):
-        if (not players[i].name == "GodIMissHer"):
-            print(count + 1, players[i].name, .90 * sort9010(players[i]), currPr[i].name, currPr[i].get7525())
-            count += 1
 
-    with open("TestWeight.csv", 'w', newline='', encoding="utf-8") as csvfile:
+    # prints the example rankings
+    for i in range(0, len(players)):
+        count += 1
+        print(count, players[i].name, sort9010(players[i]), currPr[i].name, currPr[i].get7525())
+
+    with open(addOutputDirToStart("TestWeight.csv"), 'w', newline='', encoding="utf-8") as csvfile:
         writer = csv.writer(csvfile, delimiter="\t")
         writer.writerow(["Rank", "Tag", "90/10 Split", "", "Tag", "75/25 Split (Current)"])
         for i in range(0, len(players)):
             writer.writerow([i + 1, players[i].name, sort9010(players[i]), "", currPr[i].name, sort7225(currPr[i])])
 
 
+"""creates the top 20 head to head spreadsheet.
+
+"""
+
+
 def makeSpring2023H2H():
     names = []
     players = []
     getQualifiedPlayers("Rankings\\Spring 2023\\Trueskill.csv", "Rankings\\Spring 2023\\Braacket.csv", players, names)
+    # get the qualified players first
 
     decider = SetDecider(8)
+    # get the relevant sets (Spring 2023)
 
     sets = getAllSetsWith(decider)
 
@@ -1361,33 +1451,44 @@ def makeSpring2023H2H():
         print(i + 1, players[i].name, sort7225(players[i]))
 
     top20 = []
-    for i in range(0, 21):
+    for i in range(0, 21):  # have 21 players in the top 20 because of special circumstances
         top20.append(players[i])
     filename = "Top20HeadToHead.csv"
-    makeHead2Head(top20, filename)
+    makeHead2Head(top20, filename)  # create the Head2Head
+
+
+"""
+
+"""
 
 
 def showTrue7525():
     players = []
-    playernames = []
+    playerNames = []
     # seasons = ["Spring 2023", "Fall 2022", "Summer 2022"]
     seasons = ["Spring 2023"]
     getQualifiedPlayers("Rankings\\Spring 2023\\Trueskill.csv", "Rankings\\Spring 2023\\Braacket.csv", players,
-                        playernames)
-    addAllPlacements(addOutputDirToStart("tournaments.csv"), seasons, players, playernames)
+                        playerNames)  # get the ranking points
+    addAllPlacements(addOutputDirToStart("tournaments.csv"), seasons, players, playerNames)
+    # add all of their placements since those factor in to the calculation
 
     players.sort(key=sortCurrent7525, reverse=True)
     active = []
-    for p in players:
+    for p in players:  # check the activity requirements
         if p.hasAttendedAtLeast(4):
             active.append(p)
 
-    for i in range(0, len(active)):
+    for i in range(0, len(active)):  # print the new list
         print(i + 1, active[i].name, sortCurrent7525(active[i]))
 
 
+"""prints the set win-rate of every player
+
+"""
+
+
 def showWinRate():
-    decider = SetDecider(0)
+    decider = SetDecider(0)  # this pulls every set
 
     sets = getAllSetsWith(decider)
 
@@ -1396,70 +1497,53 @@ def showWinRate():
 
     linkSetsToPlayers(players, names, sets)
 
-    index = names.index("Failbot")
-    person = players[index]
-    person.displayTotalRecord()
-
-    print(person.getSetCountWithPlayer("Violet"))
-
-    wins, losses = person.getSetsAgainst("Violet")
-
-    for w in wins:
-        w.displayAll()
-    for l in losses:
-        l.displayAll()
-
-    index2 = names.index("Truth")
-    person = players[index2]
-    person.displayTotalRecord()
-
-    print(person.getSetCountWithPlayer("Failbot"))
-    print("Players:", len(players))
-
-    seasons = ["Spring 2023", "Fall 2022", "Summer 2022"]
-    addAllPlacements(addOutputDirToStart("tournaments.csv"), seasons, players, names)
+    seasons = SeasonFinder([1, 2, 3, 4, 5])
+    addAllPlacements(addOutputDirToStart("tournaments.csv"), seasons, players, names)  # add Every Placement
 
     count = 0
-    activepeople = []
-    for p in players:
+    activePeople = []
+    for p in players:  # check for 4 tournaments attended
         if p.hasAttendedAtLeast(4):
             count += 1
-            activepeople.append(p)
-    activepeople.sort(key=winRateSort, reverse=True)
+            activePeople.append(p)
+    activePeople.sort(key=winRateSort, reverse=True)
 
-    for i in range(0, len(activepeople)):
-        print(str(i) + ':', activepeople[i].name, winRateSort(activepeople[i]) * 100)
+    for i in range(0, len(activePeople)):
+        print(str(i) + ':', activePeople[i].name, winRateSort(activePeople[i]) * 100)  # turn to percentage
+
+
+"""Makes the Head2Head sheet for all players with 4+ tournaments attended
+
+"""
 
 
 def makeFullSpring2023H2H():
     names = []
     players = []
     getQualifiedPlayers("Rankings\\Spring 2023\\Trueskill.csv", "Rankings\\Spring 2023\\Braacket.csv", players, names)
+    # get the rankings
 
-    """
-    index = names.index("GodIMissHer")
-    del names[index]
-    del players[index]
-    """
     qualified = len(players)
 
     decider = SetDecider(8)
 
     sets = getAllSetsWith(decider)
 
-    linkSetsToPlayers(players, names, sets)
+    linkSetsToPlayers(players, names, sets)  # get set data for Head2Head
 
-    players.sort(key=sort7225, reverse=True)
+    players.sort(key=sort7225, reverse=True)  # sort by ranking order
 
-    for i in range(0, 20):
-        print(i + 1, players[i].name, sort7225(players[i]))
-
-    topN = []
+    topN = []  # in case I want to cut off at a number like 50
     for i in range(0, qualified):
         topN.append(players[i])
 
     filename = "FullHeadToHeadOutput.csv"
     makeHead2Head(topN, filename)
+
+
+"""A function that calls other functions for me
+
+"""
 
 
 def makeSpringH2Hs():
@@ -1468,9 +1552,19 @@ def makeSpringH2Hs():
     makeFullSpring2023H2H()
 
 
+"""A function that updates information, then calls functions for me
+
+"""
+
+
 def updateAndMakeSpring2023():
     scrapeLast200PlacesAndSetRecords()
     makeSpringH2Hs()
+
+
+"""A function to test the SeasonFinder class
+
+"""
 
 
 def testSeasonFinder():
@@ -1479,41 +1573,49 @@ def testSeasonFinder():
              "01 October 2022", "01 November 2022", "01 December 2022", "01 January 2023", "01 February 2023",
              "01 March 2023", "01 April 2023", "01 May 2023", "01 June 2023", "01 July 2023", "01 August 2023",
              "01 September 2023", "01 October 2023", "01 November 2023", "01 December 2023"]
+
+    # testing the summer dates
     for date in dates:
         if finder.isInSeason(date):
             print(date + " is TRUE")
     print("\n\n\n")
 
+    # testing fall 2022 dates
     finder = SeasonFinder([2])
     for date in dates:
         if finder.isInSeason(date):
             print(date + " is TRUE")
     print("\n\n\n")
 
+    # tests both summer and fall
     finder = SeasonFinder([1, 2])
     for date in dates:
         if finder.isInSeason(date):
             print(date + " is TRUE")
     print("\n\n\n")
 
+    # tests spring 2023
     finder = SeasonFinder([3])
     for date in dates:
         if finder.isInSeason(date):
             print(date + " is TRUE")
     print("\n\n\n")
 
+    # tests summer 2022 and spring 2023
     finder = SeasonFinder([1, 3])
     for date in dates:
         if finder.isInSeason(date):
             print(date + " is TRUE")
     print("\n\n\n")
 
+    # tests summer 2023
     finder = SeasonFinder([4])
     for date in dates:
         if finder.isInSeason(date):
             print(date + " is TRUE")
     print("\n\n\n")
 
+    # tests fall 2023
     finder = SeasonFinder([5])
     for date in dates:
         if finder.isInSeason(date):
@@ -1521,14 +1623,21 @@ def testSeasonFinder():
     print("\n\n\n")
 
 
+"""creates a spreadsheet with the number of tournaments each player has attended
+
+"""
+
+
 def outputAttendance():
     players = []
-    playernames = []
+    playerNames = []
 
-    seasons = ["Spring 2023", "Fall 2022", "Summer 2022"]
+    seasons = SeasonFinder([1, 2, 3])
     # seasons = ["Spring 2023"]
-    addAllPlacements(addOutputDirToStart("tournaments.csv"), seasons, players, playernames)
+    addAllPlacements(addOutputDirToStart("tournaments.csv"), seasons, players, playerNames)
+    # adds all placements, used to count the number of tournaments
 
+    # only show players with 5+ tournaments in the last year
     activePlayers = []
     for p in players:
         if p.hasAttendedAtLeast(5):
@@ -1543,6 +1652,11 @@ def outputAttendance():
             writer.writerow(
                 [p.name, spring2023AttendanceSort(p), fall2022AttendanceSort(p), summer2022AttendanceSort(p),
                  attendanceSort(p)])
+
+
+"""
+
+"""
 
 
 def makeTrueSpring23StatPr():
@@ -1576,4 +1690,4 @@ def makeTrueSpring23StatPr():
             count += 1
 
 
-scrapeLast200PlacesAndSetRecords()
+outputAttendance()
