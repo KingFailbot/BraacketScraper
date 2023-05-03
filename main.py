@@ -105,7 +105,7 @@ def scrapeLast200TournamentLinks():
         date = text.find('Matches')
         if (date != -1) & (text is not None):
             if count % 2 == 0:  # only concerned with ever other entry
-                text = text.split('Matches', 1)[1] # some parsing to get the number of sets played
+                text = text.split('Matches', 1)[1]  # some parsing to get the number of sets played
                 text = text.replace('\n', '')
                 text = text.split("/", 1)[1]
                 text = text.replace("\t", '')
@@ -127,7 +127,8 @@ def scrapeLast200TournamentLinks():
         with open(addOutputDirToStart('Last200Tournaments.csv'), 'w', newline='') as new_file:
 
             pairs = []
-            for t, d, e, m, l in zip(tournaments, dates, entrantCounts, matches, links):  # zip items for easier use later
+            # zip items for easier use later
+            for t, d, e, m, l in zip(tournaments, dates, entrantCounts, matches, links):
                 item = {'Tournament': t, 'Date': d, 'Entrants': e, 'Matches': m, "Link": l}
                 pairs.append(item)
 
@@ -154,16 +155,27 @@ def removeIfContains(word, target):
     return word
 
 
+"""Utility function that returns the season name.
+
+Uses the SeasonFinder to return the season name (i.e. "Summer 2022")
+
+:param date, a date of a tournament
+
+:returns a string of the season name
+"""
+
+
 def getSeasonName(date):
     finder = SeasonFinder([1])
     return finder.getSeasonName(date)
 
 
-def findAnyInString(array, date):
-    for i in array:
-        if date.find(i) > -1:
-            return True
-    return False
+"""Utility function that removes illegal characters for a file name
+
+:param word a string that could have bad characters
+
+:returns a clean version of word without any bad characters
+"""
 
 
 def cleanString(word):
@@ -180,30 +192,53 @@ def cleanString(word):
     return word
 
 
+"""Utility function that takes a name, and replaces it with the "official tag" where possible
+
+:param word the alternate tag to be replaced
+:param players the list of players from the tournament
+:param alts the list of alts from the tournament
+
+:returns the players "official tag" if alts and players are the same size
+"""
+
+
 def replaceAltWithPlayer(word, players, alts):
     index = alts.index(word)
 
-    if index < len(players):
-        return players[index]
+    if index < len(players):  # true if alts and players are the same size
+        return players[index]  # returns the player in the position of the given alt
     else:
         return word
 
 
+"""Utility function that takes a word, and returns a string within the given bounds
+
+:param word, the word to be shortened
+:param start, the start of the desired substring
+:param end, the end of the desired substring
+
+:returns the substring within start and end
+"""
+
+
 def cutString(word, start, end):
     contains = word.find(start)
-    if contains != -1:
+    if contains != -1:  # cut the string if start is present
         word = word.split(start)[1]
     contains = word.find(end)
-    if contains != -1:
+    if contains != -1:  # cut the string if end is present
         word = word.split(end)[0]
     return word
 
 
-def isEven(num):
-    if num % 2 == 0:
-        return True
-    else:
-        return False
+"""Utility function that removes white space from a string 
+
+Removes end-line, tab, and "NBSP" from a string 
+
+:param word the word to be remove white space from
+
+:returns the word without whitespace
+"""
 
 
 def removeWhiteSpace(word):
@@ -213,63 +248,124 @@ def removeWhiteSpace(word):
     return word
 
 
+"""Scraping function that gets information from the landing page of a tournament.
+
+:param url, the url of the tournament landing page
+
+:returns the page header information, including the name, date, entrants, and the original link
+"""
+
+
 def getHeader(url):
+    # get the tournament page data
     r = requests.get(url)
     print(r)
     soup = BeautifulSoup(r.content, 'html.parser')
-    s = soup.find('a', class_='text-bold')
+
+    s = soup.find('a', class_='text-bold')  # the tournament name is the only thing under this category
     tournamentName = s.getText()
     tournamentName = cleanString(tournamentName)
     print(tournamentName)
-    s = soup.find_all('div', class_='btn btn-default')
+
+    s = soup.find_all('div', class_='btn btn-default')  # splits the information contained in the header
     date = s[1].getText()
     entrants = s[2].getText()
     sets = s[3].getText()
+
     date = removeWhiteSpace(date)
-    entrants = removeWhiteSpace(entrants)
+
+    entrants = removeWhiteSpace(entrants)  # the entrant count of the tournament
     entrants = cutString(entrants, '/', 'NA')
-    sets = removeWhiteSpace(sets)
+
+    sets = removeWhiteSpace(sets)  # the number of sets played
     sets = cutString(sets, '/', 'NA')
 
     s = soup.find('div', class_="my-dashboard-text text-left read-more-target info-read-more")
     s = s.find('a')
-    link = s.get('href')
+    link = s.get('href')  # the start.gg/challonge link for the tournament
 
     return tournamentName, date, entrants, sets, link
+
+
+"""scraping function that gets every player and alternate tag seen on placement page.
+
+:param url the url for the placements page
+
+:returns parallel lists of player tags, and alts used
+"""
 
 
 def getPlayersAndAlts(url):
     players = []
     alts = []
-    r = requests.get(url)
+    r = requests.get(url)  # get the URL
     print(r)
     soup = BeautifulSoup(r.content, 'html.parser')
-    for alt in soup.find_all('td', class_='ellipsis'):
+
+    for alt in soup.find_all('td', class_='ellipsis'):  # get all player alts
         alt = alt.getText()
         alt = removeWhiteSpace(alt)
         alts.append(alt)
+
     for player in soup.find_all('span', class_='hidden-xs'):
         player = player.getText()
-        if player.find("  ") != -1:
-            players.append(removeWhiteSpace(player))
+        if player.find("  ") != -1:  # these characters precede every player tag
+            players.append(removeWhiteSpace(player))  # remove these characters
 
     return players, alts
 
 
-def getDoubleElimN(number):
+"""Utility function, returns the largest power of 2 smaller than the number.
+
+:param number the number that a power of 2 is being in relation to
+
+:returns n the largest exponent such that 2^n < number
+"""
+
+
+def getDoubleEliminationN(number):
     n = 1
     while number > pow(2, n + 1):
         n = n + 1
     return n
 
 
-def getDoubleElimPlacement(number):
+"""Utility function that takes a number and turns it into a valid double elimination placement.
+
+i.e. 47 --> 33, 49 --> 48. If a placement list is ordered it can take the position in list an convert to placement
+
+:param number the number to be converted
+
+:returns the valid double elimination placement
+"""
+
+
+def getDoubleEliminationPlacement(number):
     if number < 5:
         return number
-    n = getDoubleElimN(number)
+    n = getDoubleEliminationN(number)
     if number > (pow(2, n) + pow(2, (n - 1))):
         return (pow(2, n) + pow(2, (n - 1))) + 1
     return pow(2, n) + 1
+
+
+"""Scraping function, takes a tournament URL.
+
+Writes a csv file and a workbook sheet for both the placement and headToHead data
+
+:param url the landing URL to be scraped from
+
+:param workBook, the placement workBook to be written to
+
+:param placementFile the file location of the workBook
+
+:param headToHeadWB, the headToHeadWB to be written to
+
+:param headToHeadFile the file location for headToHead
+
+:returns the fields like name, date, entrants, sets, links, and winner; this is used in 
+ a spreadsheet with all tournaments information
+"""
 
 
 def scrapeATournament(url, workBook, placementFile, headToHeadWB, headToHeadFile):
@@ -284,6 +380,7 @@ def scrapeATournament(url, workBook, placementFile, headToHeadWB, headToHeadFile
     League Link
     """
 
+    # gets and prints relevant information about bracket
     tournamentName, date, entrants, sets, link = getHeader(url)
     print("Date:", date)
     print("Entrants:", entrants)
@@ -292,30 +389,37 @@ def scrapeATournament(url, workBook, placementFile, headToHeadWB, headToHeadFile
     print("braacket link:", url)
     time.sleep(2)
 
-    count = 1
+    # gets the placement page
     rankingURL = url + "/ranking?rows=200"
-    players, alts = getPlayersAndAlts(rankingURL)
+    players, alts = getPlayersAndAlts(rankingURL)  # alts are created in parallel with players (since they are
+    # parallel lists on braacket)
+
+    count = 1
     nums = []
     for _ in players:
-        nums.append(getDoubleElimPlacement(count))
+        nums.append(getDoubleEliminationPlacement(count))  # adds as many placement data points as players
         count = count + 1
-    first = players[0]
+    first = players[0]  # gets first place, since that goes in spreadsheet
     print('First:', first)
 
+    # One line of header fields labels, then a line with those fields
     titleFields = ['Tournament Name', 'Date', 'Winner', 'Entrants', 'Sets Played', 'Original Link:', 'League Link']
     fields = [tournamentName, date, first, entrants, sets, link, url]
     fieldnames = ['Placement', 'Tag', 'Alt']
 
+    # gets a sheet name less than 30 characters for xls file
     sheetName = tournamentName
     stringLength = len(sheetName)
     if stringLength > 30:
         sheetName = sheetName[:30]
 
+    # writes header information to xls file
     sheet = workBook.add_sheet(sheetName)
     for i in range(0, len(titleFields)):
         sheet.write(0, i, titleFields[i])
         sheet.write(1, i, fields[i])
 
+    # writes the content of placements to xls file
     for i in range(0, len(fieldnames)):
         sheet.write(2, i, fieldnames[i])
     for i in range(0, len(nums)):
@@ -323,10 +427,11 @@ def scrapeATournament(url, workBook, placementFile, headToHeadWB, headToHeadFile
         sheet.write(3 + i, 1, players[i])
         sheet.write(3 + i, 2, alts[i])
 
+    # saves the workBook
     workBook.save(placementFile)
-    path = "Placements/" + getSeasonName(date) + "/" + tournamentName + ".csv"
-    # filename = tournamentName + '.csv'
 
+    # writes the placement data to a csv file
+    path = "Placements/" + getSeasonName(date) + "/" + tournamentName + ".csv"
     with open(path, 'w', newline='', encoding="utf-8") as csvfile:
         writer = csv.writer(csvfile, delimiter="\t")
         writer.writerow(titleFields)
@@ -335,29 +440,29 @@ def scrapeATournament(url, workBook, placementFile, headToHeadWB, headToHeadFile
         for i in range(0, len(players)):
             writer.writerow([nums[i], players[i], alts[i]])
 
-    time.sleep(2)
+    time.sleep(2)  # wait for 2 seconds
     getOneHeadToHead(url, titleFields, fields, headToHeadWB, headToHeadFile, players, alts)
-    return fields
+    # gets and outputs the headToHead information for the tournament
+    return fields  # returns the fields, these are used above
 
 
-def countMinusOneRemaining(array, currIdx):
-    count = 0
-    for i in range(currIdx, len(array)):
-        if int(array[i]) == -1:
-            count = count + 1
-    return count
+"""Scraping function that iterates through the last 200 tournaments.
+
+Creates .xls and .csv files representing all tournaments for both head to head and placement data
+"""
 
 
-def scrapeLast200Placements():
-    links = scrapeLast200TournamentLinks()
+def scrapeLast200PlacesAndSetRecords():
+    links = scrapeLast200TournamentLinks()  # gets all the links to be scraped
 
-    placementWB = Workbook()
+    placementWB = Workbook()  # create worksheets and file locations for .xls files
     placementFile = addOutputDirToStart('PR tournaments.xls')
     headToHeadWB = Workbook()
     headToHeadFile = addOutputDirToStart('HeadToHead.xls')
 
     time.sleep(2)
 
+    # setting up empty arrays to be filled with data from every tournament
     titleFields = ['Tournament Name', 'Date', 'Winner', 'Entrants', 'Sets Played', 'Original Link:', 'League Link']
     names = []
     dates = []
@@ -369,13 +474,16 @@ def scrapeLast200Placements():
 
     titleSheet = placementWB.add_sheet("Tournaments")
 
-    for i in range(0, len(titleFields)):
+    for i in range(0, len(titleFields)):  # writes title fields for .xls file
         titleSheet.write(0, i, titleFields[i])
 
     count = 0
     for i in reversed(links):
         time.sleep(2)
         attributes = scrapeATournament(i, placementWB, placementFile, headToHeadWB, headToHeadFile)
+        # scrapes through every link in the array
+
+        # adds respective data for each attribute
         names.append(attributes[0])
         dates.append(attributes[1])
         winners.append(attributes[2])
@@ -387,9 +495,11 @@ def scrapeLast200Placements():
             titleSheet.write(count + 1, j, attributes[j])
         count = count + 1
 
+    # saves data in .xls files
     placementWB.save(placementFile)
     headToHeadWB.save(headToHeadFile)
 
+    # writes a spreadsheet with all of the above data
     with open(addOutputDirToStart("tournaments.csv"), 'w', newline='') as csvfile:
         writer = csv.writer(csvfile, delimiter="\t")
         writer.writerow(titleFields)
@@ -397,17 +507,32 @@ def scrapeLast200Placements():
             writer.writerow([names[i], dates[i], winners[i], entrants[i], sets[i], originalLink[i], leagueLink[i]])
 
 
+"""Takes a tournament and adds all placements to respective players.
+
+Uses parallel players and playerNames arrays
+
+:param fileLocation the location of the placement data
+
+:param players the list of player objects
+
+:param playerNames the list of player name strings
+
+:returns the players and playerNames with potentially new players added
+"""
+
+
 def calculateTournamentPoints(fileLocation, players, playerNames):
+    # sets up empty variables for later
     tournamentName = ''
     entrants = 0
     date = ''
 
-    with open(fileLocation, 'r', encoding='utf-8') as file:
+    with open(fileLocation, 'r', encoding='utf-8') as file:  # opens the data file
         reader = csv.reader(file)
         count = 0
 
         for row in reader:
-            if count == 1:
+            if count == 1:  # on the second line, get information from header
                 header = row[0].split("\t")
                 tournamentName = header[0]
                 date = header[1]
@@ -419,64 +544,84 @@ def calculateTournamentPoints(fileLocation, players, playerNames):
                 tag = info[1]
                 # print("Line:", count + 1)
                 # print(row[0])
-                if len(info) > 2:
+                if len(info) > 2:  # safety check, should always be true
                     alt = info[2]
-                else:
+                else:  # if no valid information for alt, use the player's tag
                     alt = info[1]
-                # print(placement, tag, alt)
-                result = Placing(tournamentName, date, entrants, placement)
-                if not playerNames.__contains__(tag):
+
+                result = Placing(tournamentName, date, entrants, placement)  # add a placing with needed information
+                # to player
+                if not playerNames.__contains__(tag):  # if the player isn't in arrays (first time being encountered)
                     playerNames.append(tag)
                     thisPlayer = Player(tag)
                     thisPlayer.addPlacement(result, alt)
-                    # thisPlayer.display()
-                    # result.display()
-                    players.append(thisPlayer)
+
+                    players.append(thisPlayer)  # adds player with placement to players array
                 else:
-                    index = playerNames.index(tag)
+                    index = playerNames.index(tag)  # find tag information in parallel array
                     thisPlayer = players[index]
-                    thisPlayer.addPlacement(result, alt)
+                    thisPlayer.addPlacement(result, alt)  # add placement to player
                     players[index] = thisPlayer
 
             count = count + 1
-    return players, playerNames
+    return players, playerNames  # returns the players arrays
+
+
+"""Loops through all tournaments that meet a condition and adds placement data.
+
+Takes a parallel players and playerNames array
+
+:param file, the file that contains all locations of tournaments
+
+:param cond, a SeasonFinder object with desired parameters
+
+:param players, a list of players
+
+:param playerNames, a list of player's tags (strings)
+"""
 
 
 def addAllPlacements(file, cond, players, playerNames):
-    with open(file, 'r', encoding='utf-8') as file:
+    with open(file, 'r', encoding='utf-8') as file:  # open the spreadsheet with all tournament data
         reader = csv.reader(file, delimiter='\t')
         count = 0
         tournaments = []
         dates = []
         for row in reader:
             if count > 0:
-                # if(cond.__contains__(getSeasonName(row[1]))):
                 print(row[1])
                 print(cond.inWhichSeason(row[1]))
                 # print(cond.isInSeason(row[1]))
-                if cond.isInSeason(row[1]):
-                    print("IS IN SEASON")
+                if cond.isInSeason(row[1]):  # if the tournament follows condition, add it to list to be read
                     tournaments.append(row[0])
                     dates.append(row[1])
             count += 1
     count = 0
-    for bracket in tournaments:
-        link = "Placements\\" + getSeasonName(dates[count]) + "\\" + bracket + ".csv"
-        calculateTournamentPoints(link, players, playerNames)
+
+    for bracket in tournaments:  # for every valid tournament add its placement data
+        link = "Placements\\" + getSeasonName(dates[count]) + "\\" + bracket + ".csv"  # gives correct file location
+        calculateTournamentPoints(link, players, playerNames)  # adds placement data for tournament
         count += 1
+
+
+"""Creates a spreadsheet with every known alternate tag
+
+"""
 
 
 def writeAllAlts():
     players = []
     playerNames = []
     seasons = SeasonFinder([1, 2, 3, 4, 5])
+    # add all placement data, the alternate tags are a bonus
     addAllPlacements(addOutputDirToStart("tournaments.csv"), seasons, players, playerNames)
 
+    # sort players so more relevant players appear higher
     players.sort(reverse=True)
     count = 0
 
-    for p in players:
-        if (p.tournamentsAttended() >= 1):
+    for p in players: # prints all known alternate tags
+        if p.tournamentsAttended() >= 1:  # if the player has attended a tournament (safety feature)
             print(p.name)
             p.printAlts()
             print()
@@ -487,10 +632,9 @@ def writeAllAlts():
         writer = csv.writer(csvfile, delimiter="\t")
         writer.writerow(["Player: ", "Alts"])
         for i in players:
-            row = [a for a in i.alts]
-            row = [i.name] + row
+            row = [a for a in i.alts]  # for every alt the player has
+            row = [i.name] + row  # adds the players name first
             writer.writerow(row)
-            # writer.writerow([(x,) for x in reversed(i.alts)])
 
 
 def getHeadToHead(filename):
@@ -542,12 +686,12 @@ def getOneHeadToHead(url, titleFields, fields, headToHeadWB, headToHeadFile, pla
         writer.writerow(row3)
         for i in Sets:
             writer.writerow([i.order, i.winner, i.loser, i.winningScore, i.losingScore, i.outOf, i.game])
-    sheetname = tournamentName
-    strlength = len(sheetname)
-    if strlength > 30:
-        sheetname = sheetname[:30]
+    sheetName = tournamentName
+    stringLength = len(sheetName)
+    if stringLength > 30:
+        sheetName = sheetName[:30]
 
-    sheet = headToHeadWB.add_sheet(sheetname)
+    sheet = headToHeadWB.add_sheet(sheetName)
     for i in range(0, len(titleFields)):
         sheet.write(0, i, titleFields[i])
         sheet.write(1, i, fields[i])
@@ -574,7 +718,7 @@ def getOneHeadToHead(url, titleFields, fields, headToHeadWB, headToHeadFile, pla
 
 
 def scrapeOneH2HPage(url, sets, players, alts, soup, multiple):
-    if (multiple):
+    if multiple:
         time.sleep(2)
         r = requests.get(url)
         print(r)
@@ -586,6 +730,7 @@ def scrapeOneH2HPage(url, sets, players, alts, soup, multiple):
     order = []
     len1 = len(players)
     len2 = len(alts)
+
     if len1 > len2:
         for i in range(0, len2):
             print(players[i], alts[i])
@@ -1191,7 +1336,7 @@ def makeSpringH2Hs():
 
 
 def updateAndMakeSpring2023():
-    scrapeLast200Placements()
+    scrapeLast200PlacesAndSetRecords()
     makeSpringH2Hs()
 
 
@@ -1297,3 +1442,5 @@ def makeTrueSpring23StatPr():
             writer.writerow([count, i.name, sort7525mypoints(i), i.trueSkill, i.points, i.braacket])
             count += 1
 
+
+writeAllAlts()
