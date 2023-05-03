@@ -698,7 +698,7 @@ def getOneHeadToHead(url, titleFields, fields, headToHeadWB, headToHeadFile, pla
 
     path = "HeadToHead/" + season + "/" + tournamentName + ".csv"
 
-    with open(path, 'w', newline='', encoding="utf-8") as csvfile:  # write every set for this tournament
+    with open(path, 'w', newline='', encoding="utf-8") as csvfile:  # write every theSet for this tournament
         writer = csv.writer(csvfile, delimiter="\t")
         writer.writerow(titleFields)
         writer.writerow(fields)
@@ -720,7 +720,7 @@ def getOneHeadToHead(url, titleFields, fields, headToHeadWB, headToHeadFile, pla
     for i in range(0, len(row3)):
         sheet.write(2, i, row3[i])
 
-    # write every set on a line
+    # write every theSet on a line
     for i in range(0, len(Sets)):
         sheet.write(3 + i, 0, Sets[i].order)
         sheet.write(3 + i, 1, Sets[i].winner)
@@ -794,7 +794,7 @@ def scrapeOneH2HPage(url, sets, players, alts, soup, multiple):
                 goodData.append(j)
 
                 # smallCount += 1
-        if len(goodData) > 4:  # if there are enough elements to fill a full set
+        if len(goodData) > 4:  # if there are enough elements to fill a full theSet
             if not ((int(goodData[2]) == -1) or (int(goodData[4]) == -1)):  # check for DQs, those sets do not count
                 # and are denoted by a -1 score
                 order.append(int(goodData[0]))  # add the sets number to order (this number is useful for ordering)
@@ -812,7 +812,7 @@ def scrapeOneH2HPage(url, sets, players, alts, soup, multiple):
                     # print("Winner:", goodData[3])
                     winners.append(replaceAltWithPlayer(goodData[3], players, alts))
                     winScore.append(int(goodData[4]))
-    for i in range(0, len(winners)):  # for set winner, create a set and append it to the sets array
+    for i in range(0, len(winners)):  # for theSet winner, create a theSet and append it to the sets array
         thisSet = Set(winners[i], losers[i], winScore[i], loseScore[i], order[i])
         sets.append(thisSet)
 
@@ -872,7 +872,7 @@ gives a list of sets that follow a SetDecider condition
 
 
 def getAllSetsWith(cond):
-    # set up lists to be filled
+    # theSet up lists to be filled
     dates = []
     tournaments = []
     sets = []
@@ -917,10 +917,10 @@ def getOneTournamentSetsWith(cond, sets, filename):
 
             if count > 2:  # for lines past the header
                 if row[0] != '':
-                    thisSet = Set(row[1], row[2], int(row[3]), int(row[4]), int(row[0]))  # add the data to the set
-                    thisSet.addTournament(tournamentName)  # add the tournament to the set
+                    thisSet = Set(row[1], row[2], int(row[3]), int(row[4]), int(row[0]))  # add the data to the theSet
+                    thisSet.addTournament(tournamentName)  # add the tournament to the theSet
                     thisSet.addDate(date)
-                    if cond.decide(thisSet):  # if the set is in the criteria, then add it to the list
+                    if cond.decide(thisSet):  # if the theSet is in the criteria, then add it to the list
                         sets.append(thisSet)
             count = count + 1
 
@@ -1090,7 +1090,7 @@ def sort9010(player):
 
 def linkSetsToPlayers(players, names, sets):
     for SET in sets:
-        if not (names.__contains__(SET.winner)):  # if the winner of the set is not in list, add them to the list
+        if not (names.__contains__(SET.winner)):  # if the winner of the theSet is not in list, add them to the list
             names.append(SET.winner)
             tempPlayer = Player(SET.winner)
             players.append(tempPlayer)
@@ -1121,7 +1121,7 @@ def scrapeRanking(trueskill, pathname):
     print(r)
     soup = BeautifulSoup(r.content, 'html.parser')
     # request page
-    # set up lists
+    # theSet up lists
     players = []
     scores = []
     count = 0
@@ -1366,7 +1366,7 @@ def makeHead2Head(players, filename):
             tenLoss = 0
             twentyWin = 0
             twentyLoss = 0
-            # The above are used to keep track of set count with certain players
+            # The above are used to keep track of theSet count with certain players
             for p in players:
                 tempWins, tempLoses = players[i].getSetIntsWith(p.name)
                 wins += tempWins
@@ -1384,7 +1384,7 @@ def makeHead2Head(players, filename):
             twentyTotal = str(twentyWin) + " - " + str(twentyLoss)
             # adds these totals to the ends of the row later
             arr = [players[i].getSetCountWithPlayer(p.name) for p in players]
-            # gets set count with every Player in array
+            # gets theSet count with every Player in array
             arr = [str(i + 1), players[i].name] + arr
             arr = arr + [tenTotal, twentyTotal, setTotal]
             writer.writerow(arr)  # writes the row with all of this information
@@ -1482,13 +1482,13 @@ def showTrue7525():
         print(i + 1, active[i].name, sortCurrent7525(active[i]))
 
 
-"""prints the set win-rate of every player
+"""prints the theSet win-rate of every player
 
 """
 
 
 def showWinRate():
-    decider = SetDecider(0)  # this pulls every set
+    decider = SetDecider(0)  # this pulls every theSet
 
     sets = getAllSetsWith(decider)
 
@@ -1529,7 +1529,7 @@ def makeFullSpring2023H2H():
 
     sets = getAllSetsWith(decider)
 
-    linkSetsToPlayers(players, names, sets)  # get set data for Head2Head
+    linkSetsToPlayers(players, names, sets)  # get theSet data for Head2Head
 
     players.sort(key=sort7225, reverse=True)  # sort by ranking order
 
@@ -1691,4 +1691,4 @@ def makeTrueSpring23StatPr():
             count += 1
 
 
-outputAttendance()
+testSeasonFinder()
