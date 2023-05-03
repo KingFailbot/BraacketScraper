@@ -1457,7 +1457,7 @@ def makeSpring2023H2H():
     makeHead2Head(top20, filename)  # create the Head2Head
 
 
-"""
+"""Prints the rankings based on current methods (Summer 2023)
 
 """
 
@@ -1654,7 +1654,7 @@ def outputAttendance():
                  attendanceSort(p)])
 
 
-"""
+"""Makes a Stat PR in the way future Stat PRs will be made
 
 """
 
@@ -1674,7 +1674,7 @@ def makeTrueSpring23StatPr():
 
     getQualifiedPlayers("Rankings\\Spring 2023\\Trueskill.csv", "Rankings\\Spring 2023\\Braacket.csv", players, names)
 
-    newPlayers = []
+    newPlayers = []  # filters players by attendance
     for p in players:
         if p.hasAttendedAtLeast(4):
             newPlayers.append(p)
@@ -1682,6 +1682,7 @@ def makeTrueSpring23StatPr():
     newPlayers.sort(key=sortCurrent7525, reverse=True)
 
     with open(addOutputDirToStart("StatPRModified.csv"), 'w', newline='', encoding="utf-8") as csvfile:
+        # creates a sheet
         writer = csv.writer(csvfile, delimiter="\t")
         writer.writerow(["Rank", "Player", "Points", "Trueskill", "Manual Placement", "Braacket"])
         count = 1
