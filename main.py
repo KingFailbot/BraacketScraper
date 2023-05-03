@@ -14,17 +14,34 @@ from set import SetDecider
 
 from SeasonFinder import SeasonFinder
 
+"""A function that returns the given filename in the output directory.
+
+:param filename, the file name desired within inputs
+:returns A filename withing the output directory 
+"""
+
 
 def addOutputDirToStart(filename):
     outputDirectory = "Output"
     return outputDirectory + "\\" + filename
 
 
+"""A function that scrapes the last 200 links from braacket.com.
+
+A spreadsheet containing basic information is created from the last 200 tournaments on braacket.com. 
+
+:returns an array containing all of the links of the first 200 tournaments.
+"""
+
+
 def scrapeLast200TournamentLinks():
-    r = requests.get('https://braacket.com/league/MNUltNew/tournament?rows=200')
+    r = requests.get(
+        'https://braacket.com/league/MNUltNew/tournament?rows=200')  # the page containing the last 200 tournaments
+    # is requested.
     bracketURL = "https://braacket.com"
     print(r)
 
+    # empty arrays for relevant variables are created (links, tournaments, entrants, dates, and match number.)
     links = []
     tournaments = []
     entrantCounts = []
@@ -35,39 +52,32 @@ def scrapeLast200TournamentLinks():
 
     count = 0
     trueCount = 0
-    for link in soup.find_all('a'):
+    for link in soup.find_all('a'):  # find all the links in the page
         text = link.get('href')
         delimiter = -1
-        if text is not None:
+        if text is not None:  # if there is a link
             delimiter = text.find("/tournament/")
-        if delimiter != -1:
-            if count % 2 != 1:
-                text = bracketURL + text
+        if delimiter != -1:  # if the link is for a tournament
+            if count % 2 != 1:  # every other link is a repeat, so ignore half
+                text = bracketURL + text  # have to add the original URL since braacket does not give absolute url
                 links.append(text)
                 # print(text)
                 trueCount = trueCount + 1
             count = count + 1
 
-    # print("Links: ", trueCount)
-    # print(r.content)
-
     s = soup.find_all('div', class_='my-dashboard-values-sub')
-    count = 0
 
-    for line in s:
+    for line in s:  # find all the dates for tournaments
         text = line.getText()
         date = text.find('Date')
         if (date != -1) & (text is not None):
             text = text.replace('\n', '')
-            text = text.split('Date', 1)[1]
-            # print(text)
+            text = text.split('Date', 1)[1]  # splitting by the text date gives us information before and after,
+            # only concerned with after
             dates.append(text)
-            count = count + 1
-
-    # print("Date Count: ", count)
 
     s = soup.find_all('td', class_='ellipsis')
-    count = 0
+
     # tournament name grabber
     for line in s:
         line.get('href')
@@ -76,61 +86,48 @@ def scrapeLast200TournamentLinks():
         if (delimiter != -1) & (text is not None):
             text = text.replace("\n", "")
             tournaments.append(text)
-            # print(text)
-            count = count + 1
-
-    # print("Tournament Count: ", count)
 
     s = soup.find_all('span', class_='text-bold')
-    count = 0
 
-    for line in s:
+    for line in s:  # entrant counts for tournaments
         text = line.getText()
         leftParen = text.find('(')
         if (leftParen != -1) & (text is not None):
             text = text.split('(', 1)[1]
-            text = text.split(')', 1)[0]
+            text = text.split(')', 1)[0]  # only concerned with information between parenthesis
             entrantCounts.append(text)
-            # print(entrantCounts[count])
-
-            count = count + 1
-
-    # print("Entrant Counts: ", count)
 
     s = soup.find_all('div', class_='my-dashboard-values-sub')
-    count = 0
-    trueCount = 0
 
+    count = 0
     for line in s:
         text = line.getText()
         date = text.find('Matches')
         if (date != -1) & (text is not None):
-            if count % 2 == 0:
-                text = text.split('Matches', 1)[1]
+            if count % 2 == 0:  # only concerned with ever other entry
+                text = text.split('Matches', 1)[1] # some parsing to get the number of sets played
                 text = text.replace('\n', '')
                 text = text.split("/", 1)[1]
                 text = text.replace("\t", '')
 
                 # print(text)
                 matches.append(text)
-                trueCount = trueCount + 1
-            count = count + 1
+            count += 1
 
     # print("Matches Count: ", trueCount)
 
-    print('')
-    print("ArraySize for Tournaments", len(tournaments))
+    print(" \n ArraySize for Tournaments", len(tournaments))
     print('ArraySize for Dates', len(dates))
     print("ArraySize for Entrants", len(entrantCounts))
     print("ArraySize for Links", len(links))
 
     areEqual = len(tournaments) == len(entrantCounts)
     areEqual = areEqual & (len(tournaments) == len(links))
-    if areEqual:
+    if areEqual:  # if all the fields have the same number of entries
         with open(addOutputDirToStart('Last200Tournaments.csv'), 'w', newline='') as new_file:
 
             pairs = []
-            for t, d, e, m, l in zip(tournaments, dates, entrantCounts, matches, links):
+            for t, d, e, m, l in zip(tournaments, dates, entrantCounts, matches, links):  # zip items for easier use later
                 item = {'Tournament': t, 'Date': d, 'Entrants': e, 'Matches': m, "Link": l}
                 pairs.append(item)
 
@@ -139,26 +136,20 @@ def scrapeLast200TournamentLinks():
             csv_writer = csv.DictWriter(new_file, fieldnames=fieldnames, delimiter='\t')
 
             csv_writer.writeheader()
-            for row in pairs:
+            for row in pairs:  # write every zipped pair
                 csv_writer.writerow(row)
-    return links
+    return links  # returns the array of tournament links
 
 
-def getAllTextInstances(array, soup, classType, className, display):
-    for item in soup.find_all(classType, class_=className):
+"""Utility function that removes instances of the target in the original word
 
-        if item is not None:
-            item = item.getText()
-            item = removeWhiteSpace(item)
-            if display:
-                print(item)
-            array.append(item)
-    return array
+:returns the reduced string
+"""
 
 
 def removeIfContains(word, target):
-    delim = word.find(target)
-    if delim != -1:
+    delimiter = word.find(target)
+    if delimiter != -1:
         word = word.replace(target, '')
     return word
 
@@ -191,11 +182,7 @@ def cleanString(word):
 
 def replaceAltWithPlayer(word, players, alts):
     index = alts.index(word)
-    """
-    if(len(players) != len(alts)):
-        print("ALTS AND PLAYERS NOT EQUAL")
-    
-    """
+
     if index < len(players):
         return players[index]
     else:
@@ -364,9 +351,6 @@ def countMinusOneRemaining(array, currIdx):
 def scrapeLast200Placements():
     links = scrapeLast200TournamentLinks()
 
-    # url = "https://braacket.com/tournament/0158DF57-0695-4D2F-A111-8E67687BF8D9"
-
-    # url = "https://braacket.com/tournament/233866E7-DAC3-420B-B08C-1C014FEB2206"
     placementWB = Workbook()
     placementFile = addOutputDirToStart('PR tournaments.xls')
     headToHeadWB = Workbook()
@@ -468,7 +452,6 @@ def addAllPlacements(file, cond, players, playerNames):
             if count > 0:
                 # if(cond.__contains__(getSeasonName(row[1]))):
                 print(row[1])
-                print(cond.getSeasonName(row[1]))
                 print(cond.inWhichSeason(row[1]))
                 # print(cond.isInSeason(row[1]))
                 if cond.isInSeason(row[1]):
@@ -486,9 +469,8 @@ def addAllPlacements(file, cond, players, playerNames):
 def writeAllAlts():
     players = []
     playerNames = []
-    seasons = ["Spring 2023", "Fall 2022", "Summer 2022"]
-    # seasons = ["Spring 2023"]
-    addAllPlacements("tournaments.csv", seasons, players, playerNames)
+    seasons = SeasonFinder([1, 2, 3, 4, 5])
+    addAllPlacements(addOutputDirToStart("tournaments.csv"), seasons, players, playerNames)
 
     players.sort(reverse=True)
     count = 0
@@ -501,7 +483,7 @@ def writeAllAlts():
 
             count = count + 1
 
-    with open("alts.csv", 'w', newline='', encoding='utf-8') as csvfile:
+    with open(addOutputDirToStart("alts.csv"), 'w', newline='', encoding='utf-8') as csvfile:
         writer = csv.writer(csvfile, delimiter="\t")
         writer.writerow(["Player: ", "Alts"])
         for i in players:
@@ -894,7 +876,7 @@ def displayTournamentsAttendedInSpring2023():
 
     # seasons = ["Spring 2023", "Fall 2022", "Summer 2022"]
     seasons = ["Spring 2023"]
-    addAllPlacements("tournaments.csv", seasons, players, names)
+    addAllPlacements(addOutputDirToStart("tournaments.csv"), seasons, players, names)
     print("Players:", len(players), "Names", len(names))
     count = 0
     activepeople = []
@@ -1114,7 +1096,7 @@ def showTrue7525():
     seasons = ["Spring 2023"]
     getQualifiedPlayers("Rankings\\Spring 2023\\Trueskill.csv", "Rankings\\Spring 2023\\Braacket.csv", players,
                         playernames)
-    addAllPlacements("tournaments.csv", seasons, players, playernames)
+    addAllPlacements(addOutputDirToStart("tournaments.csv"), seasons, players, playernames)
 
     players.sort(key=sort7525mypoints, reverse=True)
     active = []
@@ -1157,7 +1139,7 @@ def showWinRate():
     print("Players:", len(players))
 
     seasons = ["Spring 2023", "Fall 2022", "Summer 2022"]
-    addAllPlacements("tournaments.csv", seasons, players, names)
+    addAllPlacements(addOutputDirToStart("tournaments.csv"), seasons, players, names)
 
     count = 0
     activepeople = []
@@ -1267,7 +1249,7 @@ def outputAttendance():
 
     seasons = ["Spring 2023", "Fall 2022", "Summer 2022"]
     # seasons = ["Spring 2023"]
-    addAllPlacements("tournaments.csv", seasons, players, playernames)
+    addAllPlacements(addOutputDirToStart("tournaments.csv"), seasons, players, playernames)
 
     activePlayers = []
     for p in players:
@@ -1276,7 +1258,7 @@ def outputAttendance():
 
     filename = "attendance.csv"
     activePlayers.sort(key=spring2023AttendanceSort, reverse=True)
-    with open(filename, 'w', newline='', encoding="utf-8") as csvfile:
+    with open(addOutputDirToStart(filename), 'w', newline='', encoding="utf-8") as csvfile:
         writer = csv.writer(csvfile, delimiter="\t")
         writer.writerow(["Player", "Spring 2023", "Fall 2022", "Summer 2022", "Total"])
         for p in activePlayers:
@@ -1296,7 +1278,7 @@ def makeTrueSpring23StatPr():
 
     linkSetsToPlayers(players, names, sets)
     print(len(players), len(names))
-    addAllPlacements('tournaments.csv', finder, players, names)
+    addAllPlacements(addOutputDirToStart('tournaments.csv'), finder, players, names)
 
     getQualifiedPlayers("Rankings\\Spring 2023\\Trueskill.csv", "Rankings\\Spring 2023\\Braacket.csv", players, names)
 
@@ -1307,7 +1289,7 @@ def makeTrueSpring23StatPr():
 
     newPlayers.sort(key=sort7525mypoints, reverse=True)
 
-    with open("StatPRModified.csv", 'w', newline='', encoding="utf-8") as csvfile:
+    with open(addOutputDirToStart("StatPRModified.csv"), 'w', newline='', encoding="utf-8") as csvfile:
         writer = csv.writer(csvfile, delimiter="\t")
         writer.writerow(["Rank", "Player", "Points", "Trueskill", "Manual Placement", "Braacket"])
         count = 1
@@ -1315,5 +1297,3 @@ def makeTrueSpring23StatPr():
             writer.writerow([count, i.name, sort7525mypoints(i), i.trueSkill, i.points, i.braacket])
             count += 1
 
-
-makeSpringH2Hs()
