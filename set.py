@@ -174,6 +174,19 @@ def isSpring2023(theSet):
         return True
     return False
 
+def isSummer2023(theSet):
+    temp = theSet.date
+    if not (temp.find("2023") > -1):
+        return False
+    if temp.find("May") > -1:
+        return True
+    if temp.find("June") > -1:
+        return True
+    if temp.find("July") > -1:
+        return True
+    if temp.find("August") > -1:
+        return True
+    return False
 
 """ tests if the set was in the summer Season 2022
 
@@ -222,6 +235,19 @@ def isFall2022(theSet):
         return True
     return False
 
+def isFall2023(theSet):
+    temp = theSet.date
+    if not (temp.find("2023") > -1):
+        return False
+    if temp.find("September") > -1:
+        return True
+    if temp.find("October") > -1:
+        return True
+    if temp.find("November") > -1:
+        return True
+    if temp.find("December") > -1:
+        return True
+    return False
 
 """a class that decides if a theSet follows a desired condition
 
@@ -243,6 +269,7 @@ class SetDecider:
     6: The set was in summer 2022
     7: The set was in fall 2022
     8: The set was in spring 2023
+    9: The set was in Summer 2023
     Else: returns true
     """
     def __init__(self, mode):
@@ -269,6 +296,10 @@ class SetDecider:
             isCondition = isFall2022(theSet)
         elif self.mode == 8:
             isCondition = isSpring2023(theSet)
+        elif self.mode == 9:
+            isCondition = isSummer2023(theSet)
+        elif self.mode == 10:
+            isCondition = isFall2023(theSet)
         else:
             return True
 

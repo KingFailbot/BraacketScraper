@@ -139,7 +139,7 @@ def scrapeLast200TournamentLinks():
             csv_writer.writeheader()
             for row in pairs:  # write every zipped pair
                 csv_writer.writerow(row)
-    return links  # returns the array of tournament links
+    return links, dates  # returns the array of tournament links
 
 
 """Utility function that removes instances of the target in the original word
@@ -498,6 +498,67 @@ def scrapeLast200PlacesAndSetRecords():
     # saves data in .xls files
     placementWB.save(placementFile)
     headToHeadWB.save(headToHeadFile)
+
+    # writes a spreadsheet with all of the above data
+    with open(addOutputDirToStart("tournaments.csv"), 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile, delimiter="\t")
+        writer.writerow(titleFields)
+        for i in range(0, len(names)):
+            writer.writerow([names[i], dates[i], winners[i], entrants[i], sets[i], originalLink[i], leagueLink[i]])
+
+
+def scrapePlacesAndSetRecordsInTarget(targetFinder):
+    links, realdates = scrapeLast200TournamentLinks()  # gets all the links to be scraped
+
+    placementWB = Workbook()  # create worksheets and file locations for .xls files
+    placementFile = addOutputDirToStart('PR tournaments.xls')
+    headToHeadWB = Workbook()
+    headToHeadFile = addOutputDirToStart('HeadToHead.xls')
+
+    time.sleep(2)
+
+    # setting up empty arrays to be filled with data from every tournament
+    titleFields = ['Tournament Name', 'Date', 'Winner', 'Entrants', 'Sets Played', 'Original Link:', 'League Link']
+    names = []
+    dates = []
+    winners = []
+    entrants = []
+    sets = []
+    originalLink = []
+    leagueLink = []
+
+    titleSheet = placementWB.add_sheet("Tournaments")
+
+    for i in range(0, len(titleFields)):  # writes title fields for .xls file
+        titleSheet.write(0, i, titleFields[i])
+
+    print("Realdates len", len(realdates))
+    count = 0
+    trueCount = 0
+    for i in reversed(links):
+        currentCount = len(realdates) - (1 + trueCount)
+        print("Current Count:", currentCount, "Realdates[currentCount]", realdates[currentCount])
+        if targetFinder.isInSeason(realdates[currentCount]):
+            time.sleep(2)
+            attributes = scrapeATournament(i, placementWB, placementFile, headToHeadWB, headToHeadFile)
+            # scrapes through every link in the array
+
+            # adds respective data for each attribute
+            names.append(attributes[0])
+            dates.append(attributes[1])
+            winners.append(attributes[2])
+            entrants.append(attributes[3])
+            sets.append(attributes[4])
+            originalLink.append(attributes[5])
+            leagueLink.append((attributes[6]))
+            for j in range(0, len(attributes)):
+                titleSheet.write(count + 1, j, attributes[j])
+            count = count + 1
+
+            # saves data in .xls files
+            placementWB.save(placementFile)
+            headToHeadWB.save(headToHeadFile)
+        trueCount = trueCount + 1
 
     # writes a spreadsheet with all of the above data
     with open(addOutputDirToStart("tournaments.csv"), 'w', newline='') as csvfile:
@@ -986,6 +1047,9 @@ def spring2023AttendanceSort(player):
             count += 1
     return count
 
+def nameSort(player):
+    return player.name
+
 
 """Utility sorting key function that sorts by attendance in the Fall 2022 season
 
@@ -1130,7 +1194,7 @@ def scrapeRanking(trueskill, pathname):
     size = len(e)
 
     for row in e:
-        if count > 7 and count != size - 1:  # only past the 8th entry and before the last
+        if count > 9 and count != size - 1:  # only past the 9th entry and before the last
             row = removeWhiteSpace(row.getText())
             length = len(row)
             if row[length - 1] == ' ':  # if there is empty space at the end, remove it (braacket is weird)
@@ -1150,6 +1214,7 @@ def scrapeRanking(trueskill, pathname):
         writer = csv.writer(csvfile, delimiter="\t")
         writer.writerow(titleFields)
         for i in range(0, len(players)):
+            print([i + 1, players[i], scores[i]])
             writer.writerow([i + 1, players[i], scores[i]])
 
 
@@ -1287,6 +1352,9 @@ def getQualifiedPlayers(trueskill, braacket, players, names):
     print("Trueskill Length:", len(people1), "Score:", len(score1))
     print("Braacket Length:", len(people2), "Score:", len(score2))
 
+    for i in range(0, len(people1)):
+        print(i, score1[i], people1[i])
+
     for i in range(0, len(people1)):  # now add scores to everyone for the first ranking
         tag = people1[i]
         if not names.__contains__(tag):
@@ -1313,6 +1381,8 @@ Outputs to statPR.csv
 
 
 def getAndCalculateStats():
+
+
     scrapeTwoRankings()  # scrape the rankings
     players = []
     names = []
@@ -1691,4 +1761,177 @@ def makeTrueSpring23StatPr():
             count += 1
 
 
-testSeasonFinder()
+def makeSummer23Braacket(players):
+    tempPlayers = players
+    tempPlayers.sort(reverse=True)
+    activePlayers = []
+    for i in tempPlayers:
+        if i.hasAttendedAtLeast(4):
+            activePlayers.append(i)
+    with open("Rankings\\Summer 2023\\Braacket.csv", 'w', newline='', encoding="utf-8") as csvfile:
+        writer = csv.writer(csvfile, delimiter="\t")
+        writer.writerow(["Rank", "Tag", "Points"])
+        count = 1
+        for i in activePlayers:
+            writer.writerow([count, i.name, i.points])
+            count = count + 1
+
+
+def makeSummer23StatPr():
+    players = []
+    names = []
+
+    decider = SetDecider(9)
+
+    sets = getAllSetsWith(decider)
+    finder = SeasonFinder([4])
+
+    linkSetsToPlayers(players, names, sets)
+    print(len(players), len(names))
+    addAllPlacements(addOutputDirToStart('tournaments.csv'), finder, players, names)
+    url1 = "https://braacket.com/league/MNUltNew/ranking/B2294AA4-5D86-4031-A9F0-C19BE1A16C32"
+    dir1 = "Rankings\\Summer 2023\\Trueskill.csv"
+    scrapeRanking(url1, dir1)
+    makeSummer23Braacket(players)
+
+    names.sort()
+    players.sort(key=nameSort)
+    for i in range(0, len(names)):
+        print (i, names[i], players[i].name)
+
+
+    getQualifiedPlayers("Rankings\\Summer 2023\\Trueskill.csv", "Rankings\\Summer 2023\\Braacket.csv", players, names)
+
+    newPlayers = []  # filters players by attendance
+    for p in players:
+        if p.hasAttendedAtLeast(4):
+            newPlayers.append(p)
+
+    newPlayers.sort(key=sortCurrent7525, reverse=True)
+
+    with open(addOutputDirToStart("Summer2023.csv"), 'w', newline='', encoding="utf-8") as csvfile:
+        # creates a sheet
+        writer = csv.writer(csvfile, delimiter="\t")
+        writer.writerow(["Rank", "Player", "Points", "Trueskill", "Manual Placement"])
+        count = 1
+        for i in newPlayers:
+            writer.writerow([count, i.name, round(float(sortCurrent7525(i)), 1), round(float(i.trueSkill), 1), round(float(i.points), 1)])
+            count += 1
+
+
+def makeFullSummer2023H2H():
+    names = []
+    players = []
+    getQualifiedPlayers("Rankings\\Summer 2023\\Trueskill.csv", "Rankings\\Summer 2023\\Braacket.csv", players, names)
+    # get the rankings
+
+    qualified = len(players)
+
+    decider = SetDecider(9)
+
+    sets = getAllSetsWith(decider)
+
+    linkSetsToPlayers(players, names, sets)  # get theSet data for Head2Head
+
+    players.sort(key=sort7225, reverse=True)  # sort by ranking order
+
+    topN = []  # in case I want to cut off at a number like 50
+    for i in range(0, qualified):
+        topN.append(players[i])
+
+    filename = "FullHeadToHeadOutputSummer.csv"
+    makeHead2Head(topN, filename)
+
+
+def makeFall23Braacket(players):
+    tempPlayers = players
+    print("IN makeFALL 23BRaacket")
+    print(tempPlayers.__len__())
+    tempPlayers.sort(reverse=True)
+    activePlayers = []
+    for i in tempPlayers:
+        if i.hasAttendedAtLeast(4):
+            activePlayers.append(i)
+    with open("Rankings\\Fall 2023\\Braacket.csv", 'w', newline='', encoding="utf-8") as csvfile:
+        writer = csv.writer(csvfile, delimiter="\t")
+        writer.writerow(["Rank", "Tag", "Points"])
+        count = 1
+        for i in activePlayers:
+            writer.writerow([count, i.name, i.points])
+            count = count + 1
+
+
+def makeFall23StatPr():
+    players = []
+    names = []
+
+    decider = SetDecider(10)
+
+    sets = getAllSetsWith(decider)
+    finder = SeasonFinder([5])
+
+    linkSetsToPlayers(players, names, sets)
+    print(len(players), len(names))
+    addAllPlacements(addOutputDirToStart('tournaments.csv'), finder, players, names)
+    url1 = "https://braacket.com/league/MNUltNew/ranking/C6EC0E6C-07C5-423E-94F8-F056D148117B"
+    dir1 = "Rankings\\Fall 2023\\Trueskill.csv"
+    scrapeRanking(url1, dir1)
+    makeFall23Braacket(players)
+
+    names.sort()
+    players.sort(key=nameSort)
+    for i in range(0, len(names)):
+        print (i, names[i], players[i].name)
+
+
+    getQualifiedPlayers("Rankings\\Fall 2023\\Trueskill.csv", "Rankings\\Fall 2023\\Braacket.csv", players, names)
+
+    newPlayers = []  # filters players by attendance
+    for p in players:
+        if p.hasAttendedAtLeast(4):
+            newPlayers.append(p)
+
+    newPlayers.sort(key=sortCurrent7525, reverse=True)
+
+    with open(addOutputDirToStart("Fall2023.csv"), 'w', newline='', encoding="utf-8") as csvfile:
+        # creates a sheet
+        writer = csv.writer(csvfile, delimiter="\t")
+        writer.writerow(["Rank", "Player", "Points", "Trueskill", "Manual Placement"])
+        count = 1
+        for i in newPlayers:
+            writer.writerow([count, i.name, round(float(sortCurrent7525(i)), 1), round(float(i.trueSkill), 1), round(float(i.points), 1)])
+            count += 1
+
+
+def makeFullFall2023H2H():
+    names = []
+    players = []
+    getQualifiedPlayers("Rankings\\Fall 2023\\Trueskill.csv", "Rankings\\Fall 2023\\Braacket.csv", players, names)
+    # get the rankings
+
+    qualified = len(players)
+
+    decider = SetDecider(10)
+
+    sets = getAllSetsWith(decider)
+
+    linkSetsToPlayers(players, names, sets)  # get theSet data for Head2Head
+
+    players.sort(key=sort7225, reverse=True)  # sort by ranking order
+
+    topN = []  # in case I want to cut off at a number like 50
+    for i in range(0, qualified):
+        topN.append(players[i])
+
+    filename = "FullHeadToHeadOutputFall.csv"
+    makeHead2Head(topN, filename)
+
+
+
+# makeFall23StatPr()
+
+target = SeasonFinder([1, 2, 3, 4, 5])
+scrapePlacesAndSetRecordsInTarget(target)
+
+#makeFullFall2023H2H()
+
